@@ -39,7 +39,7 @@ interface Options {
   } | false,
 
   // Selector string to target elements which will not initialize drag
-  cancel: string | false
+  cancel?: string | false
 
   /**
    * Containment - set drag boundaries which element will not cross
@@ -116,10 +116,17 @@ interface Options {
 
   // Event callbacks
   // Breaking: Prefixing the options with "on"
-  onPointerDown: Function
-  onClick: Function
-  onStart: Function
-  onStop: Function
+  onPointerDown?: Function
+  onClick?: Function
+  onStart?: Function
+  onStop?: Function
+
+  /**
+   * Add a callback to listen for log messages
+   * @param msg Message
+   * @param data Log event data
+   */
+  logger?: ((msg: string, data?: any) => void) | false;
 }
 
 /**
@@ -293,12 +300,17 @@ const Draggable = function DraggableClass(options : Options) {
    */
   function cancelStart(e : MouseEvent | PointerEvent | TouchEvent) {
     // Prevent the start() event from blubbling up
-    // FIXME: Wouldn't it be better to use e.stopPropagation() instead?
-    // DONT - this might interfere with other stuff
     cancelled = true;
 
-    // const eventAPI = e.type.replace('down', '').replace('start', '').replace('move', '');
-    const eventAPI = e.constructor.name.replace('Event', '').toLowerCase();
+    /**
+     * Why not e.stopPropagation() ?
+     *
+     * An alternative to this could be to bind this function directly on a cancel element
+     * and use e.stopPropgation().
+     * We are not doing that, as it could interfere with broadly scoped event handlers of the app
+     */
+
+    const eventAPI = getEventType(e);
 
     if (eventAPI === 'touch') {
       // Prevent the subsequent mousedown event from firing
@@ -334,8 +346,7 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Get the event type: mouse, touch or pointer
-    // const eventType = <'mouse'|'touch'|'pointer'> e.type.replace('down', '').replace('start', '').replace('move', '');
-    const eventType = <'mouse'|'touch'|'pointer'> e.constructor.name.replace('Event', '').toLowerCase();
+    const eventType = <'mouse'|'touch'|'pointer'> getEventType(e);
 
     // Get the input device: mouse or touch
     const inputDevice = ((eventType === 'pointer' && (e as PointerEvent).pointerType === 'mouse') || eventType === 'mouse') ? 'mouse' : 'touch';
@@ -368,7 +379,7 @@ const Draggable = function DraggableClass(options : Options) {
       eventType,
       inputDevice,
       pointerId: getPointerId(e),
-      ctrlKey: (ui.inputDevice === 'mouse' && e.ctrlKey) ? 1 : 0,
+      ctrlKey: (inputDevice === 'mouse' && e.ctrlKey) ? 1 : 0,
       originalElement: this,
       originalEvent: e,
       startX,
@@ -690,11 +701,12 @@ const Draggable = function DraggableClass(options : Options) {
    * @param
    */
   function getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
+    const eventType = getEventType(e);
     let pointerId : number;
 
-    if (ui.eventType === 'touch') {
+    if (eventType === 'touch') {
       pointerId = (<TouchEvent>e).changedTouches[0].identifier;
-    } else if (ui.eventType === 'pointer') {
+    } else if (eventType === 'pointer') {
       pointerId = (<PointerEvent>e).pointerId;
     } else {
       pointerId = 1;
@@ -836,13 +848,8 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e Event instance
    * @public static
    */
-  function getPointerEventType(e: MouseEvent | PointerEvent | TouchEvent) : ('mouse'|'touch'|'pointer') {
-    const eventType = e.constructor.name.replace('Event', '').toLocaleLowerCase();
-
-    if (['mouse', 'touch', 'pointer'].indexOf(eventType) !== -1) {
-      return <'mouse'|'touch'|'pointer'> eventType;
-    }
-    throw new Error('Invalid event supplied. Expecting a pointer event like mousedown, touchmove, pointerup');
+  function getEventType(e: Event) : string {
+    return e.constructor.name.replace('Event', '').toLocaleLowerCase();
   }
 
   //TODO: Re-implement it without jQuery
