@@ -174,7 +174,7 @@ interface DraggableEvent {
   // FIXME: Is it necessary? Perhaps for the callbacks
   // TODO: Instead of exposing this, expose the original event in each callback
   // Whether the ctrl key is on
-  ctrlKey: 1 | 0
+  ctrlKey: boolean
 
   // Expose the stop method to the ui event
   // Breaking: Disabled on 2020-09-28
@@ -202,7 +202,7 @@ const Draggable = function DraggableClass(options : Options) {
 
   // Whether dragging is in progress.
   // TODO: Convert to boolean
-  let draggingInProgress : 1 | 0;
+  let draggingInProgress : boolean = false;
 
   // Whether the event is active. The goal is to prevent duplicate mousedown
   let eventActive = false;
@@ -379,7 +379,7 @@ const Draggable = function DraggableClass(options : Options) {
       eventType,
       inputDevice,
       pointerId: getPointerId(e),
-      ctrlKey: (inputDevice === 'mouse' && e.ctrlKey) ? 1 : 0,
+      ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
       originalElement: this,
       originalEvent: e,
       startX,
@@ -395,7 +395,7 @@ const Draggable = function DraggableClass(options : Options) {
     };
 
     // Indicate that dragging is not yet in progress
-    draggingInProgress = 0;
+    draggingInProgress = false;
 
     // Indicate that the event is active (to prevent multiple initializations of it)
     eventActive = true;
@@ -542,7 +542,7 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Don't initiate if delta distance is too small
-    if (draggingInProgress === 0
+    if (!draggingInProgress
       && Math.sqrt(
         (ui.startX - ui.x) * (ui.startX - ui.x) + (ui.startY - ui.y) * (ui.startY - ui.y)
       ) > 2
@@ -552,7 +552,7 @@ const Draggable = function DraggableClass(options : Options) {
 
       draggingJustInitialized = true;
       console.log('initiating');
-      draggingInProgress = 1;
+      draggingInProgress = true;
     }
 
     if (draggingInProgress) {
@@ -646,7 +646,7 @@ const Draggable = function DraggableClass(options : Options) {
 
     ui.originalEvent = e;
 
-    ui.ctrlKey = (ui.inputDevice === 'mouse' && e.ctrlKey) ? 1 : 0;
+    ui.ctrlKey = (ui.inputDevice === 'mouse' && e.ctrlKey);
 
     if (draggingInProgress) {
       draggingInProgress = 0;
