@@ -195,6 +195,13 @@ const Draggable = function DraggableClass(options : Options) {
   const self = {};
 
   /**
+   * Private event variables used internally for computation
+   */
+  let eventVars : EventVars = {
+
+  };
+
+  /**
    * Runtime variables
    */
   // Name of the end event Enum: touchend, pointerup, mouseup
@@ -249,6 +256,9 @@ const Draggable = function DraggableClass(options : Options) {
   // if the pointer is initialized on excluded element, this will prevent the bubbling up
   let cancelled = false;
 
+  /**
+   * Public event properties
+   */
   let ui : DraggableEvent = null;
 
   const eventListeners : EventListeners = {
@@ -649,7 +659,7 @@ const Draggable = function DraggableClass(options : Options) {
     ui.ctrlKey = (ui.inputDevice === 'mouse' && e.ctrlKey);
 
     if (draggingInProgress) {
-      draggingInProgress = 0;
+      draggingInProgress = false;
 
       if (typeof options.onStop === 'function') {
         options.onStop(ui);
