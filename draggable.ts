@@ -176,7 +176,7 @@ interface DraggableEvent {
   // Whether the ctrl key is on
   ctrlKey: boolean
 
-  // Expose the stop method to the ui event
+  // Expose the stop method to the dragEvent event
   // Breaking: Disabled on 2020-09-28
   // stop: Function
 
@@ -259,7 +259,7 @@ const Draggable = function DraggableClass(options : Options) {
   /**
    * Public event properties
    */
-  let ui : DraggableEvent = null;
+  let dragEvent : DraggableEvent = null;
 
   const eventListeners : EventListeners = {
     start: null,
@@ -385,7 +385,7 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Initialize event args. See DraggableEvent interface for definitions
-    ui = {
+    dragEvent = {
       eventType,
       inputDevice,
       pointerId: getPointerId(e),
@@ -411,21 +411,21 @@ const Draggable = function DraggableClass(options : Options) {
     eventActive = true;
 
     // Define the end event to set up event listeners. Its value depends on the event type
-    endEvent = <'mouseup'|'touchend'|'pointerup'> ((ui.eventType === 'touch') ? `${ui.eventType}end` : `${ui.eventType}up`);
+    endEvent = <'mouseup'|'touchend'|'pointerup'> ((dragEvent.eventType === 'touch') ? `${dragEvent.eventType}end` : `${dragEvent.eventType}up`);
 
     // Execute pointerDown callback if supplied in the options
     if (typeof options.onPointerDown === 'function') {
-      options.onPointerDown(ui);
+      options.onPointerDown(dragEvent);
     }
 
     // Attach move and pointerup events
-    // $(document).on(`${ui.eventType}move.draggable`, move);
+    // $(document).on(`${dragEvent.eventType}move.draggable`, move);
     // $(document).on(`${endEvent}.draggable`, end);
 
     // Register move listener - the event type is deduced based on the start event type
     eventListeners.move = new SimpleEventListener({
       target: document,
-      eventName: `${ui.eventType}move`,
+      eventName: `${dragEvent.eventType}move`,
       callback: move,
     });
 
@@ -440,16 +440,16 @@ const Draggable = function DraggableClass(options : Options) {
   function dragInit() {
     // Create the draggable helper, if options.clone is enabled
     if (options.clone) {
-      // ui.helper = $(ui.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
-      ui.helper = <HTMLElement> ui.originalElement.cloneNode(true);
-      ui.helper.setAttribute('id', '');
-      options.clone.attachTo.appendChild(ui.helper);
+      // dragEvent.helper = $(dragEvent.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
+      dragEvent.helper = <HTMLElement> dragEvent.originalElement.cloneNode(true);
+      dragEvent.helper.setAttribute('id', '');
+      options.clone.attachTo.appendChild(dragEvent.helper);
     } else {
-      ui.helper = ui.originalElement;
+      dragEvent.helper = dragEvent.originalElement;
     }
 
-    const elementWidth = ui.helper.offsetWidth;
-    const elementHeight = ui.helper.offsetHeight;
+    const elementWidth = dragEvent.helper.offsetWidth;
+    const elementHeight = dragEvent.helper.offsetHeight;
 
     // Set containment boundaries: minX, maxX, minY, maxY
     if (options.containment) {
@@ -510,25 +510,25 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Add class to the element being dragged
-    ui.helper.className += ' draggable-dragging';
+    dragEvent.helper.className += ' draggable-dragging';
 
     // Enable drag cursor
     document.body.style.cursor = 'move';
 
     if (typeof options.onStart === 'function') {
-      options.onStart(ui);
+      options.onStart(dragEvent);
     }
 
     // Get the difference between helper position and pointer position
-    const style = getComputedStyle(ui.helper);
-    deltaX = ui.startX - parseInt(style.left, 10);
-    deltaY = ui.startY - parseInt(style.top, 10);
+    const style = getComputedStyle(dragEvent.helper);
+    deltaX = dragEvent.startX - parseInt(style.left, 10);
+    deltaY = dragEvent.startY - parseInt(style.top, 10);
 
-    helperX = ui.x - deltaX;
-    helperY = ui.y - deltaY;
+    helperX = dragEvent.x - deltaX;
+    helperY = dragEvent.y - deltaY;
 
-    ui.startLeft = helperX;
-    ui.startTop = helperY;
+    dragEvent.startLeft = helperX;
+    dragEvent.startTop = helperY;
 
     if (options.grid) {
       dragInitGrid();
@@ -543,18 +543,18 @@ const Draggable = function DraggableClass(options : Options) {
     let draggingJustInitialized = false;
 
     // Update position
-    if (ui.eventType === 'touch') {
-      ui.x = (<TouchEvent>e).changedTouches[0].clientX;
-      ui.y = (<TouchEvent>e).changedTouches[0].clientY;
+    if (dragEvent.eventType === 'touch') {
+      dragEvent.x = (<TouchEvent>e).changedTouches[0].clientX;
+      dragEvent.y = (<TouchEvent>e).changedTouches[0].clientY;
     } else {
-      ui.x = (<PointerEvent|MouseEvent>e).clientX;
-      ui.y = (<PointerEvent|MouseEvent>e).clientY;
+      dragEvent.x = (<PointerEvent|MouseEvent>e).clientX;
+      dragEvent.y = (<PointerEvent|MouseEvent>e).clientY;
     }
 
     // Don't initiate if delta distance is too small
     if (!draggingInProgress
       && Math.sqrt(
-        (ui.startX - ui.x) * (ui.startX - ui.x) + (ui.startY - ui.y) * (ui.startY - ui.y)
+        (dragEvent.startX - dragEvent.x) * (dragEvent.startX - dragEvent.x) + (dragEvent.startY - dragEvent.y) * (dragEvent.startY - dragEvent.y)
       ) > 2
     ) {
       // Initialize the drag
@@ -567,8 +567,8 @@ const Draggable = function DraggableClass(options : Options) {
 
     if (draggingInProgress) {
       // Calculate the dragged element position
-      let newLeft = ui.x - deltaX;
-      let newTop = ui.y - deltaY;
+      let newLeft = dragEvent.x - deltaX;
+      let newTop = dragEvent.y - deltaY;
 
       // Sanitize the position by containment boundaries
       if (options.containment) {
@@ -610,8 +610,8 @@ const Draggable = function DraggableClass(options : Options) {
       helperX = newLeft;
       helperY = newTop;
 
-      ui.left = newLeft;
-      ui.top = newTop;
+      dragEvent.left = newLeft;
+      dragEvent.top = newTop;
     }
 
     if (draggingJustInitialized) {
@@ -637,8 +637,8 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Update the dragged element position in the DOM
-    ui.helper.style.left = `${helperX}px`;
-    ui.helper.style.top = `${helperY}px`;
+    dragEvent.helper.style.left = `${helperX}px`;
+    dragEvent.helper.style.top = `${helperY}px`;
 
     // Process grid changes if using grid, this will also update the swapped element position
     if (options.grid) {
@@ -654,40 +654,40 @@ const Draggable = function DraggableClass(options : Options) {
       return;
     }
 
-    ui.originalEvent = e;
+    dragEvent.originalEvent = e;
 
-    ui.ctrlKey = (ui.inputDevice === 'mouse' && e.ctrlKey);
+    dragEvent.ctrlKey = (dragEvent.inputDevice === 'mouse' && e.ctrlKey);
 
     if (draggingInProgress) {
       draggingInProgress = false;
 
       if (typeof options.onStop === 'function') {
-        options.onStop(ui);
+        options.onStop(dragEvent);
       }
 
       // Reset the cursor style
       document.body.style.cursor = '';
 
       // Remove the draggable-dragging class from the element
-      // $(ui.helper).removeClass('draggable-dragging');
-      ui.helper.classList.remove('draggable-dragging');
+      // $(dragEvent.helper).removeClass('draggable-dragging');
+      dragEvent.helper.classList.remove('draggable-dragging');
 
       // Remove the clone helper if it was enabled
       if (options.clone) {
-        // $(ui.helper).remove();
-        // ui.helper.remove();
-        options.clone.attachTo.removeChild(ui.helper);
+        // $(dragEvent.helper).remove();
+        // dragEvent.helper.remove();
+        options.clone.attachTo.removeChild(dragEvent.helper);
       }
 
       // If grid - update set the final position of the element
       if (options.grid) {
-        ui.originalElement.style.left = `${(gridHelper.x * options.grid.cellWidth)}px`;
-        ui.originalElement.style.top = `${(gridHelper.y * options.grid.cellHeight)}px`;
+        dragEvent.originalElement.style.left = `${(gridHelper.x * options.grid.cellWidth)}px`;
+        dragEvent.originalElement.style.top = `${(gridHelper.y * options.grid.cellHeight)}px`;
       }
       // Else if dragging not in progress
     } else if (typeof options.onClick === 'function') {
       // Execute click callback if defined
-      options.onClick(ui);
+      options.onClick(dragEvent);
     }
 
     // Call the stop method
@@ -696,14 +696,14 @@ const Draggable = function DraggableClass(options : Options) {
 
   function stop() {
     console.log('Event stopped');
-    // $(document).off(ui.eventType+'move.draggable');
+    // $(document).off(dragEvent.eventType+'move.draggable');
     // $(document).off(endEvent+'.draggable');
     eventListeners.move.off();
     eventListeners.end.off();
     eventListeners.move = null;
     eventListeners.end = null;
     eventActive = false;
-    ui = null;
+    dragEvent = null;
   }
 
   /**
@@ -729,7 +729,7 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e DOM Event to check
    */
   function checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
-    return (getPointerId(e) === ui.pointerId);
+    return (getPointerId(e) === dragEvent.pointerId);
   }
 
   /**
@@ -740,21 +740,21 @@ const Draggable = function DraggableClass(options : Options) {
       return;
     }
 
-    if (helperX !== ui.x - deltaX) {
+    if (helperX !== dragEvent.x - deltaX) {
       // console.log('Warning: X difference');
     }
 
-    if (helperY !== ui.y - deltaY) {
+    if (helperY !== dragEvent.y - deltaY) {
       // console.log('Warning: Y difference');
     }
 
     let x = helperX;
-    // var x = ui.x - deltaX;
+    // var x = dragEvent.x - deltaX;
 
     x = Math.round(x / options.grid.cellWidth);
 
     let y = helperY;
-    // var y = ui.y - deltaY;
+    // var y = dragEvent.y - deltaY;
 
     y = Math.round(y / options.grid.cellHeight);
 
@@ -778,7 +778,7 @@ const Draggable = function DraggableClass(options : Options) {
     };
 
     // gridSwapped = null;
-    gridHelperID = parseInt(ui.originalElement.dataset.id, 10);
+    gridHelperID = parseInt(dragEvent.originalElement.dataset.id, 10);
   }
 
   /**
