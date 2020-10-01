@@ -126,7 +126,7 @@ interface Options {
    * @param msg Message
    * @param data Log event data
    */
-  logger?: ((msg: string, data?: any) => void) | false;
+  debugLogger?: ((msg: string, data?: any) => void) | false;
 }
 
 /**
