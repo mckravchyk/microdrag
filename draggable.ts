@@ -36,10 +36,10 @@ interface Options {
   clone?: {
     // Specify the target where the draggable element is to be attached
     attachTo: HTMLElement
-  } | false,
+  } | undefined,
 
   // Selector string to target elements which will not initialize drag
-  cancel?: string | false
+  cancel?: string | undefined
 
   /**
    * Containment - set drag boundaries which element will not cross
@@ -72,8 +72,8 @@ interface Options {
      *
      * TODO: Make it work with negative edges. Low priority
      */
-    container?: HTMLElement | false
-  } | false
+    container?: HTMLElement | undefined
+  } | undefined
   /**
    * Snap. Make the dragged element snap to edges
    *
@@ -100,7 +100,7 @@ interface Options {
      * TODO: Not implemented yet. Low priority.
      */
     // container: HTMLElement | false
-  } | false
+  } | undefined
 
   /**
    * Grid-mode - move elements on a defined grid and swap elements when they overlap
@@ -112,7 +112,7 @@ interface Options {
     map: GridMap
     // Breaking: options.delegateTarget => options.grid.container
     container: HTMLElement
-  } | false
+  } | undefined
 
   // Event callbacks
   // Breaking: Prefixing the options with "on"
@@ -151,7 +151,7 @@ interface DraggableEvent {
   originalElement: HTMLElement
 
   // The element being dragged
-  draggedElement: HTMLElement
+  draggedElement: HTMLElement | null
 
   // Reference to the original event - changes over time as different events fire
   // TODO: Set it in each event listener
@@ -162,12 +162,12 @@ interface DraggableEvent {
   pointerY: number
 
   // Element position
-  elementX: number | false
-  elementY: number | false
+  elementX: number | null
+  elementY: number | null
 
   // Element's original position
-  elementX0: number | false
-  elementY0: number | false
+  elementX0: number | null
+  elementY0: number | null
 
   // Cursor position at init
   pointerX0: number
@@ -204,12 +204,20 @@ const Draggable = function DraggableClass(options : Options) {
   // Container for public methods
   const self = {};
 
+  // For options.cancel
+  // if the pointer is initialized on excluded element, this will prevent the bubbling up
+  // @member
+  let cancelled = false;
+
   /**
    * Private event variables used internally for computation
    */
-  let eventVars : EventVars = {
+  let eventVars : EventVars = null;
 
-  };
+  /**
+   * Public event properties
+   */
+  let dragEvent : DraggableEvent = null;
 
   /**
    * Runtime variables
@@ -268,15 +276,6 @@ const Draggable = function DraggableClass(options : Options) {
   let snapRight : number;
   let snapBottom : number;
   let snapLeft : number;
-
-  // For options.cancel
-  // if the pointer is initialized on excluded element, this will prevent the bubbling up
-  let cancelled = false;
-
-  /**
-   * Public event properties
-   */
-  let dragEvent : DraggableEvent = null;
 
   const eventListeners : EventListeners = {
     start: null,
@@ -415,11 +414,10 @@ const Draggable = function DraggableClass(options : Options) {
       pointerY0,
       pointerX: pointerX0,
       pointerY: pointerY0,
-      elementX0: false,
-      elementY0: false,
-      elementX: false,
-      elementY: false,
-      // The helper is assigned in dragInit
+      elementX0: null,
+      elementY0: null,
+      elementX: null,
+      elementY: null,
       draggedElement: null,
     };
 
