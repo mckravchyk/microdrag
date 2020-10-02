@@ -126,7 +126,7 @@ interface Options {
    * @param msg Message
    * @param data Log event data
    */
-  debugLogger?: ((msg: string, data?: any) => void) | false;
+  debugLogger?: ((id: string, msg: string, data?: any) => void) | false;
 }
 
 /**
@@ -135,8 +135,6 @@ interface Options {
  * This is exposed in function callbacks
  */
 interface DraggableEvent {
-
-  draggingInProgress: boolean
 
   // Type of the API being used
   eventType: 'mouse' | 'touch' | 'pointer'
@@ -193,7 +191,7 @@ interface DraggableEventVars extends DraggableEvent {
 }
 
 interface EventListeners {
-  [key: string]: SimpleEventListener
+  [key: string]: SimpleEventListener | null
 }
 
 /**
@@ -212,22 +210,18 @@ const Draggable = function DraggableClass(options : Options) {
   /**
    * Private event variables used internally for computation
    */
-  let eventVars : EventVars = null;
+  let eventVars : (DraggableEventVars|null) = null;
 
   /**
    * Public event properties
    */
-  let dragEvent : DraggableEvent = null;
+  let dragEvent : (DraggableEvent|null) = null;
 
   /**
    * Runtime variables
    */
   // Name of the end event Enum: touchend, pointerup, mouseup
   let endEvent : 'mouseup' | 'pointerup' | 'touchend';
-
-  // Whether dragging is in progress.
-  // TODO: Convert to boolean
-  let draggingInProgress : boolean = false;
 
   // Difference between the dragged element position (edge) and the pointer position
   let deltaX : number;
@@ -263,7 +257,7 @@ const Draggable = function DraggableClass(options : Options) {
    * Each element in the grid has an id, stored in dataset.gridId
    * FIXME: This id should be automatically assigned.
    */
-  let gridElementId = null;
+  let gridElementId : number | null = null;
 
   // If options.containment is in use, these will be calculated as the dragged element's boundaries
   let minX : number;
@@ -276,6 +270,8 @@ const Draggable = function DraggableClass(options : Options) {
   let snapRight : number;
   let snapBottom : number;
   let snapLeft : number;
+
+  let rafFrameId: (number|null) = null;
 
   const eventListeners : EventListeners = {
     start: null,
@@ -305,7 +301,6 @@ const Draggable = function DraggableClass(options : Options) {
     eventListeners.start = new SimpleEventListener({
       target: options.element,
       eventName: startEventName,
-      delegate: false,
       callback: start,
     });
   }
@@ -313,7 +308,8 @@ const Draggable = function DraggableClass(options : Options) {
   self.destroy = function() {
     for (const listener of Object.keys(eventListeners)) {
       if (eventListeners[listener] !== null) {
-        eventListeners[listener].off();
+        // Using "!" operator - not sure why TypeScript fails here
+        eventListeners[listener]!.off();
         eventListeners[listener] = null;
       }
     }
@@ -398,12 +394,8 @@ const Draggable = function DraggableClass(options : Options) {
       pointerY0 = (e as MouseEvent | PointerEvent).clientY;
     }
 
-    // Indicate that dragging is not yet in progress
-    draggingInProgress = false;
-
     // Initialize event args. See DraggableEvent interface for definitions
     dragEvent = {
-      draggingInProgress,
       eventType,
       inputDevice,
       pointerId: getPointerId(e),
@@ -449,6 +441,11 @@ const Draggable = function DraggableClass(options : Options) {
   }
 
   function dragInit() {
+    // This should never be the case, only to satisfy TypeScript
+    if (dragEvent === null) {
+      throw new Error('Event is not active');
+    }
+
     // Create the draggable helper, if options.clone is enabled
     if (options.clone) {
       // dragEvent.draggedElement = $(dragEvent.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
@@ -553,6 +550,10 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e
    */
   function move(e : MouseEvent | PointerEvent | TouchEvent) {
+    // This should never be the case, only to satisfy TypeScript
+    if (dragEvent === null) {
+      throw new Error('Event is not active');
+    }
     let draggingJustInitialized = false;
 
     // Update position
@@ -565,7 +566,7 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Don't initiate if delta distance is too small
-    if (!draggingInProgress
+    if (dragEvent.draggedElement === null
       && Math.sqrt(
         (dragEvent.pointerX0 - dragEvent.pointerX) * (dragEvent.pointerX0 - dragEvent.pointerX) + (dragEvent.pointerY0 - dragEvent.pointerY) * (dragEvent.pointerY0 - dragEvent.pointerY)
       ) > 2
@@ -575,10 +576,10 @@ const Draggable = function DraggableClass(options : Options) {
 
       draggingJustInitialized = true;
       console.log('initiating');
-      draggingInProgress = true;
     }
 
-    if (draggingInProgress) {
+    if (dragEvent.draggedElement !== null) {
+      console.log('moving');
       // Calculate the dragged element position
       let newLeft = dragEvent.pointerX - deltaX;
       let newTop = dragEvent.pointerY - deltaY;
@@ -632,23 +633,23 @@ const Draggable = function DraggableClass(options : Options) {
 
     if (draggingJustInitialized) {
       // Start the render loop
-      requestAnimationFrame(renderMove);
+      // rafFrameId = requestAnimationFrame(renderMove);
+      startRenderLoop();
     }
   }
 
   /**
-   * Render the results of move on DOM. Callback of requestAnimationFrame
+   * Render the current dragged element position on DOM
+   *
+   * This function is called by the render loop to update dom position during dragging
    */
-  function renderMove() {
-    if (!draggingInProgress) {
-      return;
+  function renderMove() : void {
+    if (dragEvent === null || dragEvent.draggedElement === null) {
+      throw new Error('Unexpected call');
     }
 
-    // Schedule the next frame
-    requestAnimationFrame(renderMove);
-
     // Exit if the position hasn't changed
-    if (!draggingInProgress || (lastElementX === elementX && lastElementY === elementY)) {
+    if (lastElementX === elementX && lastElementY === elementY) {
       return;
     }
 
@@ -670,12 +671,22 @@ const Draggable = function DraggableClass(options : Options) {
       return;
     }
 
+    if (dragEvent === null) {
+      // The event must be active
+      throw new Error('Unexpected call');
+    }
+
     dragEvent.originalEvent = e;
 
     dragEvent.ctrlKey = (dragEvent.inputDevice === 'mouse' && e.ctrlKey);
 
-    if (draggingInProgress) {
-      draggingInProgress = false;
+    // If dragging was initialized
+    if (dragEvent.draggedElement !== null) {
+      // Stop the render loop
+      stopRenderLoop();
+
+      // Manually render the last frame
+      // renderMove();
 
       if (typeof options.onStop === 'function') {
         options.onStop(dragEvent);
@@ -700,6 +711,10 @@ const Draggable = function DraggableClass(options : Options) {
         dragEvent.originalElement.style.left = `${(gridX * options.grid.cellWidth)}px`;
         dragEvent.originalElement.style.top = `${(gridY * options.grid.cellHeight)}px`;
       }
+
+      // Remove reference to the dragged element - this indicates that dragging is in progress
+      dragEvent.draggedElement = null;
+
       // Else if dragging not in progress
     } else if (typeof options.onClick === 'function') {
       // Execute click callback if defined
@@ -714,10 +729,20 @@ const Draggable = function DraggableClass(options : Options) {
     console.log('Event stopped');
     // $(document).off(dragEvent.eventType+'move.draggable');
     // $(document).off(endEvent+'.draggable');
-    eventListeners.move.off();
-    eventListeners.end.off();
-    eventListeners.move = null;
-    eventListeners.end = null;
+
+    // Ensure the render loop is stopped
+    stopRenderLoop();
+
+    if (eventListeners.move !== null) {
+      eventListeners.move.off();
+      eventListeners.move = null;
+    }
+
+    if (eventListeners.end !== null) {
+      eventListeners.end.off();
+      eventListeners.end = null;
+    }
+
     dragEvent = null;
   }
 
@@ -745,6 +770,49 @@ const Draggable = function DraggableClass(options : Options) {
    */
   function checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
     return (getPointerId(e) === dragEvent.pointerId);
+  }
+
+  /**
+   * Start the render loop
+   *
+   * The render loop brings a performance benefit
+   * Instead of updating the dom everytime a mousemove event fires
+   * The render loop will update dom only when a new frame is requested
+   */
+  function startRenderLoop(): void {
+    if (rafFrameId !== null) {
+      throw new Error('Loop is already active');
+    }
+    rafFrameId = window.requestAnimationFrame(renderLoopCallback);
+  }
+
+  /**
+   * Stop the render loop
+   */
+  function stopRenderLoop(): void {
+    if (rafFrameId !== null) {
+      window.cancelAnimationFrame(rafFrameId);
+      rafFrameId = null;
+    }
+  }
+
+  /**
+   * Process render loop tick (callback to window.requestAnimationFrame)
+   * @param timestamp DOMHighResTimeStamp
+   */
+  function renderLoopCallback(timestamp: number): void {
+    // This must not be allowed as the render loop is expected to be cancelled on stop
+    if (dragEvent === null || dragEvent.draggedElement === null) {
+      throw new Error('Unexpected call');
+    }
+
+    console.log('rafCallback');
+
+    // Schedule the next frame
+    rafFrameId = window.requestAnimationFrame(renderLoopCallback);
+
+    // Render current frame
+    renderMove();
   }
 
   /**
