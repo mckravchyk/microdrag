@@ -184,6 +184,14 @@ interface DraggableEvent {
 
 }
 
+/**
+ * Interface representing event vars
+ * In contrast to DraggableEvent, the additional properties here are private
+ */
+interface DraggableEventVars extends DraggableEvent {
+
+}
+
 interface EventListeners {
   [key: string]: SimpleEventListener
 }
@@ -213,9 +221,6 @@ const Draggable = function DraggableClass(options : Options) {
   // TODO: Convert to boolean
   let draggingInProgress : boolean = false;
 
-  // Whether the event is active. The goal is to prevent duplicate mousedown
-  let eventActive = false;
-
   // Difference between the dragged element position (edge) and the pointer position
   let deltaX : number;
   let deltaY : number;
@@ -225,22 +230,32 @@ const Draggable = function DraggableClass(options : Options) {
   let elementY : number;
 
   // Previous dragged element position
-  let prevElementX : number;
-  let prevElementY : number;
+  let lastElementX : number;
+  let lastElementY : number;
 
   // var gridHelperX, gridHelperY, gridPrevHelperX, gridPrevHelperY, gridSwappedElement;
 
   // Dragged element position rounded to the grid edges (if using options.grid)
   // { x: number, y: number}
-  let gridHelper = null;
-  let gridHelperPrev = null;
+  // let gridHelper = null;
+  let gridX : number;
+  let gridY : number;
+  // let gridHelperPrev = null;
+  let lastGridX : number;
+  let lastGridY : number;
+
+  // let gridX, gridY, lastGridX, lastGridY;
 
   // Unused variable?
   // let gridSwapped = null;
 
-  // Id of the grid helper? This is very weird.
-  // Also, this is assigned as a dataset-id of the original dragged element.
-  let gridHelperID = null;
+  /**
+   * Id of the dragged element in the grid
+   *
+   * Each element in the grid has an id, stored in dataset.gridId
+   * FIXME: This id should be automatically assigned.
+   */
+  let gridElementId = null;
 
   // If options.containment is in use, these will be calculated as the dragged element's boundaries
   let minX : number;
@@ -345,7 +360,7 @@ const Draggable = function DraggableClass(options : Options) {
      * Prevents double firing of the event in "touchstart mousedown" setup
      * Prevents any other edge cases such as multiple-pointers
      */
-    if (eventActive) {
+    if (dragEvent !== null) {
       console.log('event already active!');
       return;
     }
@@ -407,9 +422,6 @@ const Draggable = function DraggableClass(options : Options) {
       // The helper is assigned in dragInit
       draggedElement: null,
     };
-
-    // Indicate that the event is active (to prevent multiple initializations of it)
-    eventActive = true;
 
     // Define the end event to set up event listeners. Its value depends on the event type
     endEvent = <'mouseup'|'touchend'|'pointerup'> ((dragEvent.eventType === 'touch') ? `${dragEvent.eventType}end` : `${dragEvent.eventType}up`);
@@ -607,12 +619,15 @@ const Draggable = function DraggableClass(options : Options) {
         }
       }
 
-      prevElementX = elementX;
-      prevElementY = elementY;
+      // Cache the previous element poistion value for comparison
+      lastElementX = elementX;
+      lastElementY = elementY;
 
+      // Update element position representation
       elementX = newLeft;
       elementY = newTop;
 
+      // Update element position in the drag event
       dragEvent.elementX = newLeft;
       dragEvent.elementY = newTop;
     }
@@ -635,7 +650,7 @@ const Draggable = function DraggableClass(options : Options) {
     requestAnimationFrame(renderMove);
 
     // Exit if the position hasn't changed
-    if (!draggingInProgress || (prevElementX === elementX && prevElementY === elementY)) {
+    if (!draggingInProgress || (lastElementX === elementX && lastElementY === elementY)) {
       return;
     }
 
@@ -684,8 +699,8 @@ const Draggable = function DraggableClass(options : Options) {
 
       // If grid - update set the final position of the element
       if (options.grid) {
-        dragEvent.originalElement.style.left = `${(gridHelper.x * options.grid.cellWidth)}px`;
-        dragEvent.originalElement.style.top = `${(gridHelper.y * options.grid.cellHeight)}px`;
+        dragEvent.originalElement.style.left = `${(gridX * options.grid.cellWidth)}px`;
+        dragEvent.originalElement.style.top = `${(gridY * options.grid.cellHeight)}px`;
       }
       // Else if dragging not in progress
     } else if (typeof options.onClick === 'function') {
@@ -705,7 +720,6 @@ const Draggable = function DraggableClass(options : Options) {
     eventListeners.end.off();
     eventListeners.move = null;
     eventListeners.end = null;
-    eventActive = false;
     dragEvent = null;
   }
 
@@ -761,12 +775,8 @@ const Draggable = function DraggableClass(options : Options) {
 
     y = Math.round(y / options.grid.cellHeight);
 
-    if (gridHelper === null) {
-      gridHelper = {};
-    }
-
-    gridHelper.x = x;
-    gridHelper.y = y;
+    gridX = x;
+    gridY = y;
   }
 
   /**
@@ -775,13 +785,11 @@ const Draggable = function DraggableClass(options : Options) {
   function dragInitGrid() {
     calculateGridHelperPosition();
 
-    gridHelperPrev = {
-      x: gridHelper.x,
-      y: gridHelper.y,
-    };
+    lastGridX = gridX;
+    lastGridY = gridY;
 
     // gridSwapped = null;
-    gridHelperID = parseInt(dragEvent.originalElement.dataset.id, 10);
+    gridElementId = parseInt(dragEvent.originalElement.dataset.gridId, 10);
   }
 
   /**
@@ -811,48 +819,55 @@ const Draggable = function DraggableClass(options : Options) {
     calculateGridHelperPosition();
 
     // If the position of the helper changes in the grid
-    if (gridHelper.x !== gridHelperPrev.x || gridHelper.y !== gridHelperPrev.y) {
-      // Id of the element that lays underneath the helper
-      let elementID : string;
+    if (gridX !== lastGridX || gridY !== lastGridY) {
+      /**
+       * Swap grid elements
+       *
+       * When the dragged element enters the place on the grid of another element,
+       * the element which is there has to be swapped to the previous grid position 
+       * of the dragged element
+       */
+      // Id of the element which is to be swapped/replaced by the dragged element
+      let swappedElementID : string;
 
       try {
         // This could probably pass as undefined
-        elementID = options.grid.map[gridHelper.y][gridHelper.x];
+        swappedElementID = options.grid.map[gridY][gridX];
       } catch (e) {
-        elementID = null;
+        swappedElementID = null;
       }
 
-      if (typeof elementID === 'undefined') {
-        elementID = null;
+      if (typeof swappedElementID === 'undefined') {
+        swappedElementID = null;
       }
 
       // If element exists - swap it with the old position
-      if (elementID !== null) {
-        const swapped = <HTMLElement> options.grid.container.querySelector(`[data-id="${elementID}"]`);
+      if (swappedElementID !== null) {
+        const swapped = <HTMLElement> options.grid.container.querySelector(`[data-id="${swappedElementID}"]`);
 
         // Put the swapped element on the previous slot in the grid
-        options.grid.map[gridHelperPrev.y][gridHelperPrev.x] = elementID;
+        options.grid.map[lastGridY][lastGridX] = swappedElementID;
 
         // Update swapped element position in the dom
-        swapped.style.left = `${(gridHelperPrev.x * options.grid.cellWidth)}px`;
-        swapped.style.top = `${(gridHelperPrev.y * options.grid.cellHeight)}px`;
+        swapped.style.left = `${(lastGridX * options.grid.cellWidth)}px`;
+        swapped.style.top = `${(lastGridY * options.grid.cellHeight)}px`;
       } else {
         // Indicate that the previous position on the grid is empty (no element was swapped)
-        options.grid.map[gridHelperPrev.y][gridHelperPrev.x] = null;
+        options.grid.map[lastGridY][lastGridX] = null;
       }
 
       // Put the dragged element in the current slot on the grid
-      options.grid.map[gridHelper.y][gridHelper.x] = gridHelperID;
+      options.grid.map[gridY][gridX] = gridElementId;
 
       // Note: The dragged element position has already been updated before this if block
 
-      console.log('Grid X: ' + gridHelper.x + ' Grid Y: ' + gridHelper.y);
-      console.log('Grid helper id: ' + gridHelperID);
-      console.log('Swapped element ID: ' + elementID);
+      console.log('Grid X: ' + gridX + ' Grid Y: ' + gridY);
+      console.log('Grid helper id: ' + gridElementId);
+      console.log('Swapped element ID: ' + swappedElementID);
 
       // Cache the previous position to be used in calculations
-      gridHelperPrev.x = gridHelper.x;
-      gridHelperPrev.y = gridHelper.y;
+      lastGridX = gridX;
+      lastGridY = gridY;
     }
   }
 
