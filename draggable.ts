@@ -15,7 +15,7 @@ import { SimpleEventListener } from '../util/SimpleEventListener';
 interface GridMap {
   [index: number]: { // y-axis column
     [index: number] : // x-axis column
-      string // numeric element id in the grid (data-id)
+      number | null // numeric element id in the grid (data-id)
   }
 }
 
@@ -130,6 +130,94 @@ interface Options {
 }
 
 /**
+ * Interface representing eventVars.drag object
+ * These are properties which are specific to dragging and initialized in dragInit()
+ */
+interface DragProperties {
+  // The element being dragged
+  draggedElement: HTMLElement
+
+  // Dragged element's position
+  elementX: number
+  elementY: number
+
+  // Previous dragged element position
+  lastElementRenderedX: number;
+  lastElementRenderedY: number;
+
+  // Dragged element's original position
+  elementX0: number
+  elementY0: number
+
+  // Difference between the dragged element position (edge) and the pointer position
+  deltaX: number;
+  deltaY: number;
+
+  /**
+   * Current id for window.requestAnimationFrame, part of the render loop
+   */
+  rafFrameId: number | null
+
+  /**
+   * Containment boundaries
+   * Set during dragInit() if options.containment is provided
+   *
+   * Note: Unlike options.containment, these are actual calculated lines/edges
+   */
+  containment: {
+    top: number
+    right: number
+    bottom: number
+    left: number
+  } | null
+
+  /**
+   * Snap edges (calculated lines) - set during dragInit() if options.snap is set
+   */
+  snap: {
+    top: number
+    right: number
+    bottom: number
+    left: number
+  } | null
+
+    /**
+   * Grid properties - set at dragInit() if optionns.grid is set
+   */
+  grid: {
+    /**
+     * Id of the dragged element in the grid
+     * This is a special grid id, not to be confused with actual element's id
+     * Each element in the grid has an id, stored in dataset.gridId
+     * FIXME: This id should be automatically assigned.
+     */
+    gridId: number
+    /**
+     * Grid cell width (in px)
+     * This is used to translate raw px positions to grid positions and vice versa
+     */
+    cellWidth: number
+    cellHeight: number
+    /**
+     * Reference to the HTMLElement which is the container for the grid
+     */
+    container: HTMLElement
+    /**
+     * Current position of dragged element in the grid
+     * The position is an integer representing the column in the grid
+     */
+    gridX: number
+    gridY: number
+    /**
+     * Previous grid positions which are used for comparison
+     */
+    lastGridX: number
+    lastGridY: number
+  } | null
+
+}
+
+/**
  * Interface representing the Draggable Event
  *
  * This is exposed in function callbacks
@@ -148,9 +236,6 @@ interface DraggableEvent {
   // The original element - if options.helper is disabled, this is also the dragged element
   originalElement: HTMLElement
 
-  // The element being dragged
-  draggedElement: HTMLElement | null
-
   // Reference to the original event - changes over time as different events fire
   // TODO: Set it in each event listener
   originalEvent: Event;
@@ -158,14 +243,6 @@ interface DraggableEvent {
   // Current cursor position
   pointerX: number
   pointerY: number
-
-  // Element position
-  elementX: number | null
-  elementY: number | null
-
-  // Element's original position
-  elementX0: number | null
-  elementY0: number | null
 
   // Cursor position at init
   pointerX0: number
@@ -180,6 +257,8 @@ interface DraggableEvent {
   // Breaking: Disabled on 2020-09-28
   // stop: Function
 
+  drag: DragProperties | null
+
 }
 
 /**
@@ -188,6 +267,9 @@ interface DraggableEvent {
  */
 interface DraggableEventVars extends DraggableEvent {
 
+    // Current calculated dragged element position
+    // elementX: number | null;
+    // elementY: number | null;
 }
 
 interface EventListeners {
@@ -208,70 +290,21 @@ const Draggable = function DraggableClass(options : Options) {
   let cancelled = false;
 
   /**
-   * Private event variables used internally for computation
-   */
-  let eventVars : (DraggableEventVars|null) = null;
-
-  /**
    * Public event properties
    */
-  let dragEvent : (DraggableEvent|null) = null;
+  let dragEvent: (DraggableEvent|null) = null;
+
+  /**
+   * Grid map representation (if options.grid)
+   */
+  let gridMap: (GridMap|null) = null;
 
   /**
    * Runtime variables
    */
-  // Name of the end event Enum: touchend, pointerup, mouseup
-  let endEvent : 'mouseup' | 'pointerup' | 'touchend';
-
-  // Difference between the dragged element position (edge) and the pointer position
-  let deltaX : number;
-  let deltaY : number;
-
-  // Current calculated dragged element position
-  let elementX : number;
-  let elementY : number;
-
-  // Previous dragged element position
-  let lastElementX : number;
-  let lastElementY : number;
-
-  // var gridHelperX, gridHelperY, gridPrevHelperX, gridPrevHelperY, gridSwappedElement;
-
-  // Dragged element position rounded to the grid edges (if using options.grid)
-  // { x: number, y: number}
-  // let gridHelper = null;
-  let gridX : number;
-  let gridY : number;
-  // let gridHelperPrev = null;
-  let lastGridX : number;
-  let lastGridY : number;
-
-  // let gridX, gridY, lastGridX, lastGridY;
 
   // Unused variable?
   // let gridSwapped = null;
-
-  /**
-   * Id of the dragged element in the grid
-   *
-   * Each element in the grid has an id, stored in dataset.gridId
-   * FIXME: This id should be automatically assigned.
-   */
-  let gridElementId : number | null = null;
-
-  // If options.containment is in use, these will be calculated as the dragged element's boundaries
-  let minX : number;
-  let maxX : number;
-  let minY : number;
-  let maxY : number;
-
-  // Containment for options.snap
-  let snapTop : number;
-  let snapRight : number;
-  let snapBottom : number;
-  let snapLeft : number;
-
-  let rafFrameId: (number|null) = null;
 
   const eventListeners : EventListeners = {
     start: null,
@@ -303,6 +336,10 @@ const Draggable = function DraggableClass(options : Options) {
       eventName: startEventName,
       callback: start,
     });
+
+    if (typeof options.grid !== 'undefined') {
+      gridMap = options.grid.map;
+    }
   }
 
   self.destroy = function() {
@@ -406,15 +443,8 @@ const Draggable = function DraggableClass(options : Options) {
       pointerY0,
       pointerX: pointerX0,
       pointerY: pointerY0,
-      elementX0: null,
-      elementY0: null,
-      elementX: null,
-      elementY: null,
-      draggedElement: null,
+      drag: null,
     };
-
-    // Define the end event to set up event listeners. Its value depends on the event type
-    endEvent = <'mouseup'|'touchend'|'pointerup'> ((dragEvent.eventType === 'touch') ? `${dragEvent.eventType}end` : `${dragEvent.eventType}up`);
 
     // Execute pointerDown callback if supplied in the options
     if (typeof options.onPointerDown === 'function') {
@@ -433,6 +463,7 @@ const Draggable = function DraggableClass(options : Options) {
     });
 
     // Register end/up listener - the event type is deduced based on the start event type
+    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((dragEvent.eventType === 'touch') ? `${dragEvent.eventType}end` : `${dragEvent.eventType}up`);
     eventListeners.end = new SimpleEventListener({
       target: document,
       eventName: endEvent,
@@ -441,27 +472,50 @@ const Draggable = function DraggableClass(options : Options) {
   }
 
   function dragInit() {
-    // This should never be the case, only to satisfy TypeScript
     if (dragEvent === null) {
-      throw new Error('Event is not active');
+      throw new Error('Unexpected call');
     }
+
+    // Prepare dragging vars
+    let draggedElement : HTMLElement;
+
+    let deltaX: number = 0;
+    let deltaY: number = 0;
+    let elementX: number = 0;
+    let elementY: number = 0;
+    let elementX0: number = 0;
+    let elementY0: number = 0;
+    let lastElementRenderedX: number = 0;
+    let lastElementRenderedY: number = 0;
+
+    let containment: DragProperties['containment'] = null;
+    let snap: DragProperties['containment'] = null;
 
     // Create the draggable helper, if options.clone is enabled
-    if (options.clone) {
+    if (typeof options.clone !== 'undefined') {
+      // TODO: Add validation to check if attachTo exists
       // dragEvent.draggedElement = $(dragEvent.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
-      dragEvent.draggedElement = <HTMLElement> dragEvent.originalElement.cloneNode(true);
-      dragEvent.draggedElement.setAttribute('id', '');
-      options.clone.attachTo.appendChild(dragEvent.draggedElement);
+      // @domWrite
+      draggedElement = <HTMLElement> dragEvent.originalElement.cloneNode(true);
+      draggedElement.setAttribute('id', '');
+      options.clone.attachTo.appendChild(draggedElement);
     } else {
-      dragEvent.draggedElement = dragEvent.originalElement;
+      draggedElement = dragEvent.originalElement;
     }
 
-    const elementWidth = dragEvent.draggedElement.offsetWidth;
-    const elementHeight = dragEvent.draggedElement.offsetHeight;
+    // @domRead
+    const elementWidth = draggedElement.offsetWidth;
+    const elementHeight = draggedElement.offsetHeight;
 
     // Set containment boundaries: minX, maxX, minY, maxY
     if (options.containment) {
+      let minX;
+      let minY;
+      let maxX;
+      let maxY;
+
       const c = options.containment;
+      // domRead:
       const windowWidth = getWindowWidth();
       const windowHeight = getWindowHeight();
 
@@ -496,7 +550,6 @@ const Draggable = function DraggableClass(options : Options) {
       if (c.edges.left >= 0) minX = c.edges.left;
       else minX = -elementWidth - c.edges.left;
 
-      //
       /**
        * This was left commented out with the following note:
        *  "translate these limits to pointer coordinates"
@@ -507,40 +560,68 @@ const Draggable = function DraggableClass(options : Options) {
       maxY+=deltaY;
       minX+=deltaX
       */
+
+      containment = {
+        top: minY,
+        right: maxX,
+        bottom: maxY,
+        left: minX,
+      };
     }
 
     // Calculate snap edges
+    // domRead:
     if (options.snap) {
-      snapTop = options.snap.edges.top;
-      snapBottom = getWindowHeight() - elementHeight - options.snap.edges.bottom;
-      snapLeft = options.snap.edges.left;
-      snapRight = getWindowWidth() - elementWidth - options.snap.edges.right;
+      snap = {
+        top: options.snap.edges.top,
+        bottom: getWindowHeight() - elementHeight - options.snap.edges.bottom,
+        left: options.snap.edges.left,
+        right: getWindowWidth() - elementWidth - options.snap.edges.right,
+      };
     }
 
     // Add class to the element being dragged
-    dragEvent.draggedElement.className += ' draggable-dragging';
+    draggedElement.className += ' draggable-dragging'; // @domWrite
 
     // Enable drag cursor
-    document.body.style.cursor = 'move';
+    document.body.style.cursor = 'move'; // @domWrite
 
     if (typeof options.onStart === 'function') {
       options.onStart(dragEvent);
     }
 
     // Get the difference between helper position and pointer position
-    const style = getComputedStyle(dragEvent.draggedElement);
+    const style = getComputedStyle(draggedElement); // @domRead
     deltaX = dragEvent.pointerX0 - parseInt(style.left, 10);
     deltaY = dragEvent.pointerY0 - parseInt(style.top, 10);
 
     elementX = dragEvent.pointerX - deltaX;
     elementY = dragEvent.pointerY - deltaY;
 
-    dragEvent.elementX0 = elementX;
-    dragEvent.elementY0 = elementY;
-    dragEvent.elementX = elementX;
-    dragEvent.elementY = elementY;
+    elementX0 = elementX;
+    elementY0 = elementY;
+    lastElementRenderedX = elementX;
+    lastElementRenderedY = elementY;
 
-    if (options.grid) {
+    // Populate drag properties
+    dragEvent.drag = {
+      draggedElement,
+      deltaX,
+      deltaY,
+      elementX,
+      elementY,
+      elementX0,
+      elementY0,
+      lastElementRenderedX,
+      lastElementRenderedY,
+      rafFrameId: null,
+      containment,
+      snap,
+      // Grid will be initialized in dragInitGrid() - below
+      grid: null,
+    };
+
+    if (typeof options.grid !== 'undefined') {
       dragInitGrid();
     }
   }
@@ -550,9 +631,8 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e
    */
   function move(e : MouseEvent | PointerEvent | TouchEvent) {
-    // This should never be the case, only to satisfy TypeScript
     if (dragEvent === null) {
-      throw new Error('Event is not active');
+      throw new Error('Unexpected call');
     }
     let draggingJustInitialized = false;
 
@@ -565,10 +645,16 @@ const Draggable = function DraggableClass(options : Options) {
       dragEvent.pointerY = (<PointerEvent|MouseEvent>e).clientY;
     }
 
+    /**
+     * Note: This might be obvious, but don't think about trying to compare previous values
+     * of the pointer to see if they changed - the event already does it.
+     */
+
     // Don't initiate if delta distance is too small
-    if (dragEvent.draggedElement === null
+    if (dragEvent.drag === null
       && Math.sqrt(
-        (dragEvent.pointerX0 - dragEvent.pointerX) * (dragEvent.pointerX0 - dragEvent.pointerX) + (dragEvent.pointerY0 - dragEvent.pointerY) * (dragEvent.pointerY0 - dragEvent.pointerY)
+        (dragEvent.pointerX0 - dragEvent.pointerX) * (dragEvent.pointerX0 - dragEvent.pointerX)
+        + (dragEvent.pointerY0 - dragEvent.pointerY) * (dragEvent.pointerY0 - dragEvent.pointerY),
       ) > 2
     ) {
       // Initialize the drag
@@ -578,57 +664,57 @@ const Draggable = function DraggableClass(options : Options) {
       console.log('initiating');
     }
 
-    if (dragEvent.draggedElement !== null) {
-      console.log('moving');
+    console.log(`move(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+
+    // If dragging is active
+    if (dragEvent.drag !== null) {
+      console.log('updating position');
+
       // Calculate the dragged element position
-      let newLeft = dragEvent.pointerX - deltaX;
-      let newTop = dragEvent.pointerY - deltaY;
+      let newLeft = dragEvent.pointerX - dragEvent.drag.deltaX;
+      let newTop = dragEvent.pointerY - dragEvent.drag.deltaY;
 
       // Sanitize the position by containment boundaries
-      if (options.containment) {
+      if (dragEvent.drag.containment !== null) {
         // moveProcessContainment();
         // X-axis
-        if (newLeft < minX) {
-          newLeft = minX;
-        } else if (newLeft > maxX) {
-          newLeft = maxX;
+        if (newLeft < dragEvent.drag.containment.left) {
+          newLeft = dragEvent.drag.containment.left;
+        } else if (newLeft > dragEvent.drag.containment.right) {
+          newLeft = dragEvent.drag.containment.right;
         }
         // Y-axis
-        if (newTop < minY) {
-          newTop = minY;
-        } else if (newTop > maxY) {
-          newTop = maxY;
+        if (newTop < dragEvent.drag.containment.top) {
+          newTop = dragEvent.drag.containment.top;
+        } else if (newTop > dragEvent.drag.containment.bottom) {
+          newTop = dragEvent.drag.containment.bottom;
         }
       }
 
       // Sanitize the position for the snap feature
-      if (options.snap) {
+      if (dragEvent.drag.snap !== null) {
         // moveProcessSnap();
         // X-axis
-        if (Math.abs(newLeft - snapLeft) < 10) {
-          newLeft = snapLeft;
-        } else if (Math.abs(newLeft - snapRight) < 10) {
-          newLeft = snapRight;
+        if (Math.abs(newLeft - dragEvent.drag.snap.left) < 10) {
+          newLeft = dragEvent.drag.snap.left;
+        } else if (Math.abs(newLeft - dragEvent.drag.snap.right) < 10) {
+          newLeft = dragEvent.drag.snap.right;
         }
         // Y-axis
-        if (Math.abs(newTop - snapTop) < 10) {
-          newTop = snapTop;
-        } else if (Math.abs(newTop - snapBottom) < 10) {
-          newTop = snapBottom;
+        if (Math.abs(newTop - dragEvent.drag.snap.top) < 10) {
+          newTop = dragEvent.drag.snap.top;
+        } else if (Math.abs(newTop - dragEvent.drag.snap.bottom) < 10) {
+          newTop = dragEvent.drag.snap.bottom;
         }
       }
 
       // Cache the previous element poistion value for comparison
-      lastElementX = elementX;
-      lastElementY = elementY;
+      // dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
+      // dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
 
       // Update element position representation
-      elementX = newLeft;
-      elementY = newTop;
-
-      // Update element position in the drag event
-      dragEvent.elementX = newLeft;
-      dragEvent.elementY = newTop;
+      dragEvent.drag.elementX = newLeft;
+      dragEvent.drag.elementY = newTop;
     }
 
     if (draggingJustInitialized) {
@@ -644,21 +730,35 @@ const Draggable = function DraggableClass(options : Options) {
    * This function is called by the render loop to update dom position during dragging
    */
   function renderMove() : void {
-    if (dragEvent === null || dragEvent.draggedElement === null) {
+    if (dragEvent === null || dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
-    // Exit if the position hasn't changed
-    if (lastElementX === elementX && lastElementY === elementY) {
+    // Exit if the position didn't change
+    if (
+      dragEvent.drag.lastElementRenderedX === dragEvent.drag.elementX
+      && dragEvent.drag.lastElementRenderedY === dragEvent.drag.elementY
+    ) {
       return;
     }
 
+    // Cache the rendered position to compare in next call
+    dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
+    dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
+
+    console.log(`renderMove(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+
+// console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
+
     // Update the dragged element position in the DOM
-    dragEvent.draggedElement.style.left = `${elementX}px`;
-    dragEvent.draggedElement.style.top = `${elementY}px`;
+    // @domWrite
+    dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`;
+    dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`;
+
+// console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
     // Process grid changes if using grid, this will also update the swapped element position
-    if (options.grid) {
+    if (dragEvent.drag.grid !== null) {
       processGridUpdate();
     }
   }
@@ -681,39 +781,40 @@ const Draggable = function DraggableClass(options : Options) {
     dragEvent.ctrlKey = (dragEvent.inputDevice === 'mouse' && e.ctrlKey);
 
     // If dragging was initialized
-    if (dragEvent.draggedElement !== null) {
+    if (dragEvent.drag !== null) {
       // Stop the render loop
       stopRenderLoop();
 
       // Manually render the last frame
-      // renderMove();
+      renderMove();
 
       if (typeof options.onStop === 'function') {
         options.onStop(dragEvent);
       }
 
       // Reset the cursor style
-      document.body.style.cursor = '';
+      document.body.style.cursor = ''; // @domWrite
 
       // Remove the draggable-dragging class from the element
       // $(dragEvent.draggedElement).removeClass('draggable-dragging');
-      dragEvent.draggedElement.classList.remove('draggable-dragging');
+      dragEvent.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
 
       // Remove the clone helper if it was enabled
       if (options.clone) {
         // $(dragEvent.draggedElement).remove();
         // dragEvent.draggedElement.remove();
-        options.clone.attachTo.removeChild(dragEvent.draggedElement);
+        options.clone.attachTo.removeChild(dragEvent.drag.draggedElement); // @domWrite
       }
 
       // If grid - update set the final position of the element
-      if (options.grid) {
-        dragEvent.originalElement.style.left = `${(gridX * options.grid.cellWidth)}px`;
-        dragEvent.originalElement.style.top = `${(gridY * options.grid.cellHeight)}px`;
+      if (dragEvent.drag.grid !== null) {
+        // @domWrite
+        dragEvent.originalElement.style.left = `${(dragEvent.drag.grid.gridX * dragEvent.drag.grid.cellWidth)}px`;
+        dragEvent.originalElement.style.top = `${(dragEvent.drag.grid.gridY * dragEvent.drag.grid.cellHeight)}px`;
       }
 
-      // Remove reference to the dragged element - this indicates that dragging is in progress
-      dragEvent.draggedElement = null;
+      // // Null the drag properties object
+      // dragEvent.drag = null;
 
       // Else if dragging not in progress
     } else if (typeof options.onClick === 'function') {
@@ -726,6 +827,9 @@ const Draggable = function DraggableClass(options : Options) {
   }
 
   function stop() {
+    if (dragEvent === null) {
+      throw new Error('Unexpected call');
+    }
     console.log('Event stopped');
     // $(document).off(dragEvent.eventType+'move.draggable');
     // $(document).off(endEvent+'.draggable');
@@ -743,6 +847,7 @@ const Draggable = function DraggableClass(options : Options) {
       eventListeners.end = null;
     }
 
+    dragEvent.drag = null;
     dragEvent = null;
   }
 
@@ -769,6 +874,9 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e DOM Event to check
    */
   function checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
+    if (dragEvent === null) {
+      throw new Error('Unexpected call');
+    }
     return (getPointerId(e) === dragEvent.pointerId);
   }
 
@@ -780,19 +888,25 @@ const Draggable = function DraggableClass(options : Options) {
    * The render loop will update dom only when a new frame is requested
    */
   function startRenderLoop(): void {
-    if (rafFrameId !== null) {
+    if (dragEvent === null || dragEvent.drag === null) {
+      throw new Error('Unexpected call');
+    }
+    if (dragEvent.drag.rafFrameId !== null) {
       throw new Error('Loop is already active');
     }
-    rafFrameId = window.requestAnimationFrame(renderLoopCallback);
+    dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
   }
 
   /**
    * Stop the render loop
    */
   function stopRenderLoop(): void {
-    if (rafFrameId !== null) {
-      window.cancelAnimationFrame(rafFrameId);
-      rafFrameId = null;
+    if (dragEvent === null || dragEvent.drag === null) {
+      throw new Error('Unexpected call');
+    }
+    if (dragEvent.drag.rafFrameId !== null) {
+      window.cancelAnimationFrame(dragEvent.drag.rafFrameId);
+      dragEvent.drag.rafFrameId = null;
     }
   }
 
@@ -802,14 +916,14 @@ const Draggable = function DraggableClass(options : Options) {
    */
   function renderLoopCallback(timestamp: number): void {
     // This must not be allowed as the render loop is expected to be cancelled on stop
-    if (dragEvent === null || dragEvent.draggedElement === null) {
+    if (dragEvent === null || dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
     console.log('rafCallback');
 
     // Schedule the next frame
-    rafFrameId = window.requestAnimationFrame(renderLoopCallback);
+    dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
 
     // Render current frame
     renderMove();
@@ -819,43 +933,61 @@ const Draggable = function DraggableClass(options : Options) {
    * Calculate the dragged element position to be set on a grid
    */
   function calculateGridHelperPosition() {
-    if (!options.grid) {
-      return;
+    if (dragEvent === null || dragEvent.drag === null || dragEvent.drag.grid === null) {
+      throw new Error('Unexpected call');
     }
 
-    if (elementX !== dragEvent.pointerX - deltaX) {
+    if (dragEvent.drag.elementX !== dragEvent.pointerX - dragEvent.drag.deltaX) {
       // console.log('Warning: X difference');
     }
 
-    if (elementY !== dragEvent.pointerY - deltaY) {
+    if (dragEvent.drag.elementY !== dragEvent.pointerY - dragEvent.drag.deltaY) {
       // console.log('Warning: Y difference');
     }
 
-    let x = elementX;
+    let x = dragEvent.drag.elementX;
     // var x = dragEvent.pointerX - deltaX;
 
-    x = Math.round(x / options.grid.cellWidth);
+    x = Math.round(x / dragEvent.drag.grid.cellWidth);
 
-    let y = elementY;
+    let y = dragEvent.drag.elementY;
     // var y = dragEvent.pointerY - deltaY;
 
-    y = Math.round(y / options.grid.cellHeight);
+    y = Math.round(y / dragEvent.drag.grid.cellHeight);
 
-    gridX = x;
-    gridY = y;
+    dragEvent.drag.grid.gridX = x;
+    dragEvent.drag.grid.gridY = y;
   }
 
   /**
    * Set up grid helper options - used by dragInit()
    */
   function dragInitGrid() {
+    if (dragEvent === null || dragEvent.drag === null || typeof options.grid === 'undefined') {
+      throw new Error('Unexpected call');
+    }
+
+    // Set the object with grid properties
+    dragEvent.drag.grid = {
+      // FIXME: Assign grid ids
+      gridId: parseInt(dragEvent.originalElement.dataset.gridId, 10), // @domRead
+      container: options.grid.container,
+      cellWidth: options.grid.cellWidth,
+      cellHeight: options.grid.cellHeight,
+      gridX: 0,
+      gridY: 0,
+      lastGridX: 0,
+      lastGridY: 0,
+    };
+
+    // This will populate gridX and gridY properties of eventVars.grid
     calculateGridHelperPosition();
 
-    lastGridX = gridX;
-    lastGridY = gridY;
+    // Populate the last position variables
+    dragEvent.drag.grid.lastGridX = dragEvent.drag.grid.gridX;
+    dragEvent.drag.grid.lastGridY = dragEvent.drag.grid.gridY;
 
     // gridSwapped = null;
-    gridElementId = parseInt(dragEvent.originalElement.dataset.gridId, 10);
   }
 
   /**
@@ -863,8 +995,8 @@ const Draggable = function DraggableClass(options : Options) {
    * Used by renderMove()
    */
   function processGridUpdate() : void {
-    if (!options.grid) {
-      return;
+    if (dragEvent === null || dragEvent.drag === null || dragEvent.drag.grid === null || gridMap === null) {
+      throw new Error('Unexpected call');
     }
 
     /*
@@ -885,55 +1017,64 @@ const Draggable = function DraggableClass(options : Options) {
     calculateGridHelperPosition();
 
     // If the position of the helper changes in the grid
-    if (gridX !== lastGridX || gridY !== lastGridY) {
+    if (
+      dragEvent.drag.grid.gridX !== dragEvent.drag.grid.lastGridX
+      || dragEvent.drag.grid.gridY !== dragEvent.drag.grid.lastGridY
+    ) {
       /**
        * Swap grid elements
        *
        * When the dragged element enters the place on the grid of another element,
-       * the element which is there has to be swapped to the previous grid position 
+       * the element which is there has to be swapped to the previous grid position
        * of the dragged element
        */
+
       // Id of the element which is to be swapped/replaced by the dragged element
-      let swappedElementID : string;
+      let swappedElementID : number | null = null;
 
-      try {
-        // This could probably pass as undefined
-        swappedElementID = options.grid.map[gridY][gridX];
-      } catch (e) {
-        swappedElementID = null;
-      }
-
-      if (typeof swappedElementID === 'undefined') {
-        swappedElementID = null;
+      if (
+        typeof gridMap[dragEvent.drag.grid.gridY] !== 'undefined'
+        && typeof gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX] !== 'undefined'
+      ) {
+        swappedElementID = gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX];
       }
 
       // If element exists - swap it with the old position
       if (swappedElementID !== null) {
-        const swapped = <HTMLElement> options.grid.container.querySelector(`[data-id="${swappedElementID}"]`);
+        const swapped = <HTMLElement> dragEvent.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
 
         // Put the swapped element on the previous slot in the grid
-        options.grid.map[lastGridY][lastGridX] = swappedElementID;
+        gridMap[dragEvent.drag.grid.lastGridY][dragEvent.drag.grid.lastGridX] = swappedElementID;
 
         // Update swapped element position in the dom
-        swapped.style.left = `${(lastGridX * options.grid.cellWidth)}px`;
-        swapped.style.top = `${(lastGridY * options.grid.cellHeight)}px`;
+        swapped.style.left = `${(dragEvent.drag.grid.lastGridX * dragEvent.drag.grid.cellWidth)}px`; // @domWrite
+        swapped.style.top = `${(dragEvent.drag.grid.lastGridY * dragEvent.drag.grid.cellHeight)}px`; // @domWrite
       } else {
         // Indicate that the previous position on the grid is empty (no element was swapped)
-        options.grid.map[lastGridY][lastGridX] = null;
+        gridMap[dragEvent.drag.grid.lastGridY][dragEvent.drag.grid.lastGridX] = null;
       }
 
       // Put the dragged element in the current slot on the grid
-      options.grid.map[gridY][gridX] = gridElementId;
+      gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX] = dragEvent.drag.grid.gridId;
 
       // Note: The dragged element position has already been updated before this if block
 
-      console.log('Grid X: ' + gridX + ' Grid Y: ' + gridY);
-      console.log('Grid helper id: ' + gridElementId);
-      console.log('Swapped element ID: ' + swappedElementID);
+      console.log(`Grid X: ${dragEvent.drag.grid.gridX} Grid Y: ${dragEvent.drag.grid.gridY}`);
+      console.log(`Grid helper id: ${dragEvent.drag.grid.gridId}`);
+      console.log(`Swapped element ID: ${swappedElementID}`);
 
       // Cache the previous position to be used in calculations
-      lastGridX = gridX;
-      lastGridY = gridY;
+      dragEvent.drag.grid.lastGridX = dragEvent.drag.grid.gridX;
+      dragEvent.drag.grid.lastGridY = dragEvent.drag.grid.gridY;
+
+      // if (options.debugLogger) {
+      //   logger('gridSwap', 'grid element swapped', {
+      //     gridX: gridX,
+      //     gridY: gridY,
+      //     gridId: eventVars.grid.gridId,
+      //     swappedElementID: swappedElementID,
+      //   });
+      // }
     }
   }
 
