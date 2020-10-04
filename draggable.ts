@@ -3,7 +3,7 @@ import {
   getHeight,
   getWindowWidth,
   getWindowHeight,
-} from '../util/domUtils';
+} from './util/dom';
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
 import { MeasureFrequency } from './util/measure_frequency';
