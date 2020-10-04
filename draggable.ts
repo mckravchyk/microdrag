@@ -143,10 +143,6 @@ interface DragProperties {
   elementX: number
   elementY: number
 
-  // Previous dragged element position
-  lastElementRenderedX: number;
-  lastElementRenderedY: number;
-
   // Last processed x and y pointer values
   // This is used to prevent unncessary work if the pointer position did not change
   lastProcessedX: number | null
@@ -521,16 +517,12 @@ const Draggable = function DraggableClass(options : Options) {
     let elementY: number = 0;
     let elementX0: number = 0;
     let elementY0: number = 0;
-    let lastElementRenderedX: number = 0;
-    let lastElementRenderedY: number = 0;
 
     let containment: DragProperties['containment'] = null;
     let snap: DragProperties['containment'] = null;
 
     // Create the draggable helper, if options.clone is enabled
     if (typeof options.clone !== 'undefined') {
-      // TODO: Add validation to check if attachTo exists
-      // dragEvent.draggedElement = $(dragEvent.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
       // @domWrite
     /**
      * Note: There is a possible layout thrashing if using the clone
@@ -538,6 +530,7 @@ const Draggable = function DraggableClass(options : Options) {
      * to be calculated
      *
      */
+      // TODO: Add validation to check if attachTo exists
       draggedElement = <HTMLElement> dragEvent.originalElement.cloneNode(true);
       draggedElement.setAttribute('id', '');
       options.clone.attachTo.appendChild(draggedElement);
@@ -632,9 +625,13 @@ const Draggable = function DraggableClass(options : Options) {
 
     elementX0 = elementX;
     elementY0 = elementY;
-    lastElementRenderedX = elementX;
-    lastElementRenderedY = elementY;
 
+    /**
+     * Call onStart callback if defined
+     *
+     * Note: This function has to be placed after last dom read and before first dom write
+     * So that the callback can both read and write to dom without unnecessary layout
+     */
     if (typeof options.onStart === 'function') {
       options.onStart(dragEvent);
     }
@@ -654,8 +651,6 @@ const Draggable = function DraggableClass(options : Options) {
       elementY,
       elementX0,
       elementY0,
-      lastElementRenderedX,
-      lastElementRenderedY,
       lastProcessedX: null,
       lastProcessedY: null,
       rafFrameId: null,
@@ -681,11 +676,6 @@ const Draggable = function DraggableClass(options : Options) {
     if (!checkPointerId(e)) {
       return;
     }
-    let draggingJustInitialized = false;
-
-    // if (!moveRate.isCalculated()) {
-    //   moveRate.measure();
-    // }
 
     // Update position
     if (dragEvent.eventType === 'touch') {
@@ -711,37 +701,36 @@ const Draggable = function DraggableClass(options : Options) {
       // Initialize the drag
       console.log('dragInit()');
       dragInit();
-
-      draggingJustInitialized = true;
     }
 
     // console.log(`move(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
 
-    // If dragging is active
-    if (dragEvent.drag !== null) {
-
-      // processMove();
-    }
-
     // Schedule animation frame to process move
     if (dragEvent.drag !== null && dragEvent.drag.rafFrameId === null) {
-      /*
-      if (!moveRate.isCalculated() || moveRate.getAverageFrequency()! > 100) {
-        dragEvent.drag.rafFrameId = requestAnimationFrame(renderLoopCallback);
-      } else {
-        processMove();
-      }
-      */
-      dragEvent.drag.rafFrameId = requestAnimationFrame(renderLoopCallback);
+      dragEvent.drag.rafFrameId = requestAnimationFrame(rafProcessMove);
+      /**
+       * Note: In some browsers it would be possible to skip requestAnimationFrame althogether
+       * However there is no reliable way to check if the browser schedules
+       * one move event per frame or not
+       */
+    }
+  }
+
+  /**
+   * Process move - requestAnimationFrame callback
+   * @param timestamp DOMHighResTimeStamp
+   */
+  function rafProcessMove(timestamp: number): void {
+    // This must not be allowed as the render loop is expected to be cancelled on stop
+    if (dragEvent === null || dragEvent.drag === null) {
+      throw new Error('Unexpected call');
     }
 
+    // This indicates that the frame has been processed and another one will have to be scheduled
+    dragEvent.drag.rafFrameId = null;
 
-
-    // if (draggingJustInitialized) {
-    //   // Start the render loop
-    //   // rafFrameId = requestAnimationFrame(renderMove);
-    //   startRenderLoop();
-    // }
+    // Call the process move functions
+    processMove();
   }
 
   function processMove() {
@@ -802,10 +791,6 @@ const Draggable = function DraggableClass(options : Options) {
       }
     }
 
-    // Cache the previous element poistion value for comparison
-    // dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
-    // dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
-
     // Update element position representation
     dragEvent.drag.elementX = newLeft;
     dragEvent.drag.elementY = newTop;
@@ -815,41 +800,23 @@ const Draggable = function DraggableClass(options : Options) {
 
   /**
    * Render the current dragged element position on DOM
-   *
-   * This function is called by the render loop to update dom position during dragging
    */
   function renderMove() : void {
     if (dragEvent === null || dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
-    // Exit if the position didn't change
-    // if (
-    //   dragEvent.drag.lastElementRenderedX === dragEvent.drag.elementX
-    //   && dragEvent.drag.lastElementRenderedY === dragEvent.drag.elementY
-    // ) {
-    //   return;
-    // }
-
-    // Cache the rendered position to compare in next call
-    dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
-    dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
-
     // console.log(`renderMove(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
-
-// console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
     // Update the dragged element position in the DOM
     if (enableCompositing) {
-      let transformX = dragEvent.drag.elementX - dragEvent.drag.elementX0;
-      let transformY = dragEvent.drag.elementY - dragEvent.drag.elementY0;
+      const transformX = dragEvent.drag.elementX - dragEvent.drag.elementX0;
+      const transformY = dragEvent.drag.elementY - dragEvent.drag.elementY0;
       dragEvent.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
     } else {
       dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`; // @domWrite
       dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`; // @domWrite
     }
-
-// console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
     // Process grid changes if using grid, this will also update the swapped element position
     if (dragEvent.drag.grid !== null) {
@@ -861,13 +828,13 @@ const Draggable = function DraggableClass(options : Options) {
    * Stops the drag event
    */
   function end(e : MouseEvent | TouchEvent | PointerEvent) {
-    if (!checkPointerId(e)) {
-      return;
+    if (dragEvent === null) {
+      throw new Error('Unexpected call');
     }
 
-    if (dragEvent === null) {
-      // The event must be active
-      throw new Error('Unexpected call');
+    // Exit if the pointer id does not match
+    if (!checkPointerId(e)) {
+      return;
     }
 
     dragEvent.originalEvent = e;
@@ -876,17 +843,16 @@ const Draggable = function DraggableClass(options : Options) {
 
     // If dragging was initialized
     if (dragEvent.drag !== null) {
-      // Stop the render loop
-      // stopRenderLoop();
+      // Stop requestAnimationFrame if scheduled
+      if (dragEvent.drag.rafFrameId !== null) {
+        window.cancelAnimationFrame(dragEvent.drag.rafFrameId);
+        dragEvent.drag.rafFrameId = null;
+      }
 
-      // Manually render the last frame
-      // renderMove();
-
-      // Cancel rAF - if set at all
-      stopRenderLoop();
-      // Manually call processMove() to render last frame
+      // Manually call processMove() to render the last frame
       processMove();
 
+      // Execute onStop callback if supplied
       if (typeof options.onStop === 'function') {
         options.onStop(dragEvent);
       }
@@ -929,12 +895,8 @@ const Draggable = function DraggableClass(options : Options) {
     if (dragEvent === null) {
       throw new Error('Unexpected call');
     }
-    console.log('Event stopped');
-    // $(document).off(dragEvent.eventType+'move.draggable');
-    // $(document).off(endEvent+'.draggable');
 
-    // Ensure the render loop is stopped
-    stopRenderLoop();
+    console.log('Event stopped');
 
     if (eventListeners.move !== null) {
       eventListeners.move.off();
@@ -977,58 +939,6 @@ const Draggable = function DraggableClass(options : Options) {
       throw new Error('Unexpected call');
     }
     return (getPointerId(e) === dragEvent.pointerId);
-  }
-
-  /**
-   * Start the render loop
-   *
-   * The render loop brings a performance benefit
-   * Instead of updating the dom everytime a mousemove event fires
-   * The render loop will update dom only when a new frame is requested
-   */
-  function startRenderLoop(): void {
-    if (dragEvent === null || dragEvent.drag === null) {
-      throw new Error('Unexpected call');
-    }
-    if (dragEvent.drag.rafFrameId !== null) {
-      throw new Error('Loop is already active');
-    }
-    dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
-  }
-
-  /**
-   * Stop the render loop
-   */
-  function stopRenderLoop(): void {
-    if (dragEvent === null || dragEvent.drag === null) {
-      throw new Error('Unexpected call');
-    }
-    if (dragEvent.drag.rafFrameId !== null) {
-      window.cancelAnimationFrame(dragEvent.drag.rafFrameId);
-      dragEvent.drag.rafFrameId = null;
-    }
-  }
-
-  /**
-   * Process render loop tick (callback to window.requestAnimationFrame)
-   * @param timestamp DOMHighResTimeStamp
-   */
-  function renderLoopCallback(timestamp: number): void {
-    // This must not be allowed as the render loop is expected to be cancelled on stop
-    if (dragEvent === null || dragEvent.drag === null) {
-      throw new Error('Unexpected call');
-    }
-
-    // console.log('rafCallback');
-
-    // Schedule the next frame
-    // dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
-
-    // Render current frame
-    // renderMove();
-
-    processMove();
-    dragEvent.drag.rafFrameId = null;
   }
 
   /**
