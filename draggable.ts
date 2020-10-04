@@ -6,6 +6,8 @@ import {
 } from '../util/domUtils';
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
+import { MeasureFrequency } from './util/measure_frequency';
+
 // import type { SimpleEventListenerOptions } from '../util/SimpleEventListener';
 
 /**
@@ -144,6 +146,11 @@ interface DragProperties {
   // Previous dragged element position
   lastElementRenderedX: number;
   lastElementRenderedY: number;
+
+  // Last processed x and y pointer values
+  // This is used to prevent unncessary work if the pointer position did not change
+  lastProcessedX: number | null
+  lastProcessedY: number | null
 
   // Dragged element's original position
   elementX0: number
@@ -324,6 +331,15 @@ const Draggable = function DraggableClass(options : Options) {
   const enableCompositing = true;
 
   const startEventOverride: string|false = 'touchstart mousedown';
+
+  // const moveRate = new MeasureFrequency({
+  //   requiredDataPoints: 1000,
+  //   onCalculated: function(data) {
+  //     console.log('move rate calculated');
+  //     console.log(`Frequency: ${this.averageFrequency}`);
+  //     console.log(`Avg interval: ${this.averageInterval}`);
+  //   },
+  // });
 
   function construct() {
     // The start event to use, if Pointer API is not available, use touchstart + mousedown
@@ -516,6 +532,12 @@ const Draggable = function DraggableClass(options : Options) {
       // TODO: Add validation to check if attachTo exists
       // dragEvent.draggedElement = $(dragEvent.originalElement).clone().removeAttr('id').appendTo(options.clone.attachTo).get(0);
       // @domWrite
+    /**
+     * Note: There is a possible layout thrashing if using the clone
+     * There is no way around it, as the element has  to be cloned and its style has
+     * to be calculated
+     *
+     */
       draggedElement = <HTMLElement> dragEvent.originalElement.cloneNode(true);
       draggedElement.setAttribute('id', '');
       options.clone.attachTo.appendChild(draggedElement);
@@ -600,16 +622,6 @@ const Draggable = function DraggableClass(options : Options) {
       };
     }
 
-    // Add class to the element being dragged
-    draggedElement.className += ' draggable-dragging'; // @domWrite
-
-    // Enable drag cursor
-    document.body.style.cursor = 'move'; // @domWrite
-
-    if (typeof options.onStart === 'function') {
-      options.onStart(dragEvent);
-    }
-
     // Get the difference between helper position and pointer position
     const style = getComputedStyle(draggedElement); // @domRead
     deltaX = dragEvent.pointerX0 - parseInt(style.left, 10);
@@ -623,6 +635,16 @@ const Draggable = function DraggableClass(options : Options) {
     lastElementRenderedX = elementX;
     lastElementRenderedY = elementY;
 
+    if (typeof options.onStart === 'function') {
+      options.onStart(dragEvent);
+    }
+
+    // Add class to the element being dragged
+    draggedElement.className += ' draggable-dragging'; // @domWrite
+
+    // Enable drag cursor
+    document.body.style.cursor = 'move'; // @domWrite
+
     // Populate drag properties
     dragEvent.drag = {
       draggedElement,
@@ -634,6 +656,8 @@ const Draggable = function DraggableClass(options : Options) {
       elementY0,
       lastElementRenderedX,
       lastElementRenderedY,
+      lastProcessedX: null,
+      lastProcessedY: null,
       rafFrameId: null,
       containment,
       snap,
@@ -659,6 +683,10 @@ const Draggable = function DraggableClass(options : Options) {
     }
     let draggingJustInitialized = false;
 
+    // if (!moveRate.isCalculated()) {
+    //   moveRate.measure();
+    // }
+
     // Update position
     if (dragEvent.eventType === 'touch') {
       dragEvent.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
@@ -681,70 +709,108 @@ const Draggable = function DraggableClass(options : Options) {
       ) > 2
     ) {
       // Initialize the drag
+      console.log('dragInit()');
       dragInit();
 
       draggingJustInitialized = true;
-      console.log('initiating');
     }
 
-    console.log(`move(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+    // console.log(`move(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
 
     // If dragging is active
     if (dragEvent.drag !== null) {
-      console.log('updating position');
 
-      // Calculate the dragged element position
-      let newLeft = dragEvent.pointerX - dragEvent.drag.deltaX;
-      let newTop = dragEvent.pointerY - dragEvent.drag.deltaY;
-
-      // Sanitize the position by containment boundaries
-      if (dragEvent.drag.containment !== null) {
-        // moveProcessContainment();
-        // X-axis
-        if (newLeft < dragEvent.drag.containment.left) {
-          newLeft = dragEvent.drag.containment.left;
-        } else if (newLeft > dragEvent.drag.containment.right) {
-          newLeft = dragEvent.drag.containment.right;
-        }
-        // Y-axis
-        if (newTop < dragEvent.drag.containment.top) {
-          newTop = dragEvent.drag.containment.top;
-        } else if (newTop > dragEvent.drag.containment.bottom) {
-          newTop = dragEvent.drag.containment.bottom;
-        }
-      }
-
-      // Sanitize the position for the snap feature
-      if (dragEvent.drag.snap !== null) {
-        // moveProcessSnap();
-        // X-axis
-        if (Math.abs(newLeft - dragEvent.drag.snap.left) < 10) {
-          newLeft = dragEvent.drag.snap.left;
-        } else if (Math.abs(newLeft - dragEvent.drag.snap.right) < 10) {
-          newLeft = dragEvent.drag.snap.right;
-        }
-        // Y-axis
-        if (Math.abs(newTop - dragEvent.drag.snap.top) < 10) {
-          newTop = dragEvent.drag.snap.top;
-        } else if (Math.abs(newTop - dragEvent.drag.snap.bottom) < 10) {
-          newTop = dragEvent.drag.snap.bottom;
-        }
-      }
-
-      // Cache the previous element poistion value for comparison
-      // dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
-      // dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
-
-      // Update element position representation
-      dragEvent.drag.elementX = newLeft;
-      dragEvent.drag.elementY = newTop;
+      // processMove();
     }
 
-    if (draggingJustInitialized) {
-      // Start the render loop
-      // rafFrameId = requestAnimationFrame(renderMove);
-      startRenderLoop();
+    // Schedule animation frame to process move
+    if (dragEvent.drag !== null && dragEvent.drag.rafFrameId === null) {
+      /*
+      if (!moveRate.isCalculated() || moveRate.getAverageFrequency()! > 100) {
+        dragEvent.drag.rafFrameId = requestAnimationFrame(renderLoopCallback);
+      } else {
+        processMove();
+      }
+      */
+      dragEvent.drag.rafFrameId = requestAnimationFrame(renderLoopCallback);
     }
+
+
+
+    // if (draggingJustInitialized) {
+    //   // Start the render loop
+    //   // rafFrameId = requestAnimationFrame(renderMove);
+    //   startRenderLoop();
+    // }
+  }
+
+  function processMove() {
+    if (dragEvent === null || dragEvent.drag === null) {
+      throw new Error('Unexpected call');
+    }
+
+    // Exit if the position didn't change
+    if (
+      dragEvent.drag.lastProcessedX === dragEvent.pointerX
+      && dragEvent.drag.lastProcessedY === dragEvent.pointerY
+    ) {
+      console.log('Pointer position did not change, skipping...');
+      return;
+    }
+
+    dragEvent.drag.lastProcessedX = dragEvent.pointerX;
+    dragEvent.drag.lastProcessedY = dragEvent.pointerY;
+
+    // console.log('updating position');
+
+    // Calculate the dragged element position
+    let newLeft = dragEvent.pointerX - dragEvent.drag.deltaX;
+    let newTop = dragEvent.pointerY - dragEvent.drag.deltaY;
+
+    // Sanitize the position by containment boundaries
+    if (dragEvent.drag.containment !== null) {
+      // moveProcessContainment();
+      // X-axis
+      if (newLeft < dragEvent.drag.containment.left) {
+        newLeft = dragEvent.drag.containment.left;
+      } else if (newLeft > dragEvent.drag.containment.right) {
+        newLeft = dragEvent.drag.containment.right;
+      }
+      // Y-axis
+      if (newTop < dragEvent.drag.containment.top) {
+        newTop = dragEvent.drag.containment.top;
+      } else if (newTop > dragEvent.drag.containment.bottom) {
+        newTop = dragEvent.drag.containment.bottom;
+      }
+    }
+
+    // Sanitize the position for the snap feature
+    if (dragEvent.drag.snap !== null) {
+      // moveProcessSnap();
+      // X-axis
+      // TODO: No magic numbers for sensitivity - add an option
+      if (Math.abs(newLeft - dragEvent.drag.snap.left) < 10) {
+        newLeft = dragEvent.drag.snap.left;
+      } else if (Math.abs(newLeft - dragEvent.drag.snap.right) < 10) {
+        newLeft = dragEvent.drag.snap.right;
+      }
+      // Y-axis
+      if (Math.abs(newTop - dragEvent.drag.snap.top) < 10) {
+        newTop = dragEvent.drag.snap.top;
+      } else if (Math.abs(newTop - dragEvent.drag.snap.bottom) < 10) {
+        newTop = dragEvent.drag.snap.bottom;
+      }
+    }
+
+    // Cache the previous element poistion value for comparison
+    // dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
+    // dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
+
+    // Update element position representation
+    dragEvent.drag.elementX = newLeft;
+    dragEvent.drag.elementY = newTop;
+
+    renderMove();
   }
 
   /**
@@ -758,18 +824,18 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Exit if the position didn't change
-    if (
-      dragEvent.drag.lastElementRenderedX === dragEvent.drag.elementX
-      && dragEvent.drag.lastElementRenderedY === dragEvent.drag.elementY
-    ) {
-      return;
-    }
+    // if (
+    //   dragEvent.drag.lastElementRenderedX === dragEvent.drag.elementX
+    //   && dragEvent.drag.lastElementRenderedY === dragEvent.drag.elementY
+    // ) {
+    //   return;
+    // }
 
     // Cache the rendered position to compare in next call
     dragEvent.drag.lastElementRenderedX = dragEvent.drag.elementX;
     dragEvent.drag.lastElementRenderedY = dragEvent.drag.elementY;
 
-    console.log(`renderMove(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+    // console.log(`renderMove(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
 
 // console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
@@ -811,10 +877,15 @@ const Draggable = function DraggableClass(options : Options) {
     // If dragging was initialized
     if (dragEvent.drag !== null) {
       // Stop the render loop
-      stopRenderLoop();
+      // stopRenderLoop();
 
       // Manually render the last frame
-      renderMove();
+      // renderMove();
+
+      // Cancel rAF - if set at all
+      stopRenderLoop();
+      // Manually call processMove() to render last frame
+      processMove();
 
       if (typeof options.onStop === 'function') {
         options.onStop(dragEvent);
@@ -951,10 +1022,13 @@ const Draggable = function DraggableClass(options : Options) {
     // console.log('rafCallback');
 
     // Schedule the next frame
-    dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
+    // dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
 
     // Render current frame
-    renderMove();
+    // renderMove();
+
+    processMove();
+    dragEvent.drag.rafFrameId = null;
   }
 
   /**
