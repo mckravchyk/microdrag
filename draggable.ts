@@ -313,9 +313,29 @@ const Draggable = function DraggableClass(options : Options) {
     end: null,
   };
 
+  /**
+   * Whether the dragged element should be promoted to its own composite layer
+   *
+   * It's recommended for performance reasons as this will skip expensive operations such
+   * as layout and paint
+   * However there might be side effects, such as blurred out fonts.
+   *
+   */
+  const enableCompositing = true;
+
+  const startEventOverride: string|false = 'touchstart mousedown';
+
   function construct() {
     // The start event to use, if Pointer API is not available, use touchstart + mousedown
-    const startEventName = (typeof window.PointerEvent !== 'undefined') ? 'pointerdown' : 'touchstart mousedown';
+    let startEventName;
+
+    if (startEventOverride === false) {
+      startEventName = (typeof window.PointerEvent !== 'undefined') ? 'pointerdown' : 'touchstart mousedown';
+    } else {
+      startEventName = startEventOverride;
+    }
+
+    // const startEventName = 'touchstart mousedown';
 
     // Attach cancelStart event if cancelStart is defined
     if (options.cancel) {
@@ -634,6 +654,9 @@ const Draggable = function DraggableClass(options : Options) {
     if (dragEvent === null) {
       throw new Error('Unexpected call');
     }
+    if (!checkPointerId(e)) {
+      return;
+    }
     let draggingJustInitialized = false;
 
     // Update position
@@ -751,9 +774,14 @@ const Draggable = function DraggableClass(options : Options) {
 // console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
     // Update the dragged element position in the DOM
-    // @domWrite
-    dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`;
-    dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`;
+    if (enableCompositing) {
+      let transformX = dragEvent.drag.elementX - dragEvent.drag.elementX0;
+      let transformY = dragEvent.drag.elementY - dragEvent.drag.elementY0;
+      dragEvent.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
+    } else {
+      dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`; // @domWrite
+      dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`; // @domWrite
+    }
 
 // console.log(`Just thrashing: ${dragEvent.drag.draggedElement.style.left}`);
 
@@ -920,7 +948,7 @@ const Draggable = function DraggableClass(options : Options) {
       throw new Error('Unexpected call');
     }
 
-    console.log('rafCallback');
+    // console.log('rafCallback');
 
     // Schedule the next frame
     dragEvent.drag.rafFrameId = window.requestAnimationFrame(renderLoopCallback);
@@ -1084,6 +1112,17 @@ const Draggable = function DraggableClass(options : Options) {
    * @public static
    */
   function getEventType(e: Event) : string {
+    // Note: Checking instanceof is much faster than processing contructor name
+    if (e instanceof PointerEvent) {
+      return 'pointer';
+    }
+    if (e instanceof MouseEvent) {
+      return 'mouse';
+    }
+    if (e instanceof TouchEvent) {
+      return 'touch';
+    }
+    // We are not expecting any other event types - default to getting the name from constructor
     return e.constructor.name.replace('Event', '').toLocaleLowerCase();
   }
 
