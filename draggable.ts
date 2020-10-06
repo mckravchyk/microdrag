@@ -617,11 +617,12 @@ const Draggable = function DraggableClass(options : Options) {
 
     // Get the difference between helper position and pointer position
     const style = getComputedStyle(draggedElement); // @domRead
-    deltaX = dragEvent.pointerX0 - parseInt(style.left, 10);
-    deltaY = dragEvent.pointerY0 - parseInt(style.top, 10);
 
-    elementX = dragEvent.pointerX - deltaX;
-    elementY = dragEvent.pointerY - deltaY;
+    elementX = parseInt(style.left, 10);
+    elementY = parseInt(style.top, 10);
+
+    deltaX = dragEvent.pointerX0 - elementX;
+    deltaY = dragEvent.pointerY0 - elementY;
 
     elementX0 = elementX;
     elementY0 = elementY;
@@ -864,11 +865,20 @@ const Draggable = function DraggableClass(options : Options) {
       // $(dragEvent.draggedElement).removeClass('draggable-dragging');
       dragEvent.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
 
+      // If using composite layer - clean up the transform, pply the position as left/top position
+      if (enableCompositing) {
+        // FIXME: What if the element has existing transformation applied?
+        dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`;
+        dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`;
+        dragEvent.drag.draggedElement.style.transform = '';
+      }
+
       // Remove the clone helper if it was enabled
       if (options.clone) {
         // $(dragEvent.draggedElement).remove();
         // dragEvent.draggedElement.remove();
         options.clone.attachTo.removeChild(dragEvent.drag.draggedElement); // @domWrite
+      // FIXME: It seems like relocating the dragged element is not part of the implementation?
       }
 
       // If grid - update set the final position of the element
