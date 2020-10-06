@@ -3,285 +3,22 @@ import {
   getHeight,
   getWindowWidth,
   getWindowHeight,
-} from '../util/dom';
+} from './util/dom';
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
 import { MeasureFrequency } from './util/measure_frequency';
 
-// import type { SimpleEventListenerOptions } from '../util/SimpleEventListener';
 
-/**
- * Interface representing grid map for this.options.grid
- * E.g. grid.map[y][x] = elementId
- */
-interface GridMap {
-  [index: number]: { // y-axis column
-    [index: number] : // x-axis column
-      number | null // numeric element id in the grid (data-id)
-  }
-}
-
-/**
- * Interface representing this.options / constructor arguments of Draggable
- */
-interface Options {
-  // The element to make draggable
-  element: HTMLElement,
-  /**
-   * Draggable clone
-   *
-   * If enabled, the element will be cloned and the clone will be dragged.
-   * Then the original element will re-appear where the clone was dropped
-   *
-   * Breaking: this.options.helper = 'clone' to this.options.clone = { attachTo: cloneParent };
-   */
-  clone?: {
-    // Specify the target where the draggable element is to be attached
-    attachTo: HTMLElement
-  } | undefined,
-
-  // Selector string to target elements which will not initialize drag
-  cancel?: string | undefined
-
-  /**
-   * Containment - set drag boundaries which element will not cross
-   *
-   * Breaking: Old usage: this.options.containment = Array<number>
-   */
-  containment?: {
-    /**
-     * Containment edges
-     *
-     * If the number is non-negative, this is the distance from the window boundary
-     * If the number is negative, the dragged element can go past the boundary until
-     *  only x pixels of it are visible, x being the absolute value of the boundary edge value
-     *  If the right boundary is set to -30px, the element can be dragged all the way right
-     *  until only 30px of it are visible on the left side
-     *
-     * TODO: number | false - allow to specify snap only for certain edges. Low priority.
-     */
-    edges: {
-      top: number
-      right: number
-      bottom: number
-      left: number
-    }
-    /**
-     * Containment container
-     * The edges will be calculated relative to container element boundaries
-     *
-     * Note: Currently this is ignored for negative-value edges.
-     *
-     * TODO: Make it work with negative edges. Low priority
-     */
-    container?: HTMLElement | undefined
-  } | undefined
-  /**
-   * Snap. Make the dragged element snap to edges
-   *
-   * Breaking: Olds specs: this.options.snap = true; this.options.snapEdges = [];
-   */
-  snap?: {
-    /**
-     * Snap edges relative to the container dimensions or window
-     *
-     * E.g. if top is set to 30px and window is the container, the element can't
-     * be dragged closer than 30px to the edge of the window
-     *
-     * TODO: number | false - allow to specify snap only for certain edges. Low priority.
-     */
-    edges: {
-      top: number
-      right: number
-      bottom: number
-      left: number
-    }
-    /**
-     * Edge container
-     * The edges will be calculated relative to container element boundaries
-     * TODO: Not implemented yet. Low priority.
-     */
-    // container: HTMLElement | false
-  } | undefined
-
-  /**
-   * Grid-mode - move elements on a defined grid and swap elements when they overlap
-   */
-  grid?: {
-    cellWidth: number
-    cellHeight: number
-    // Breaking: this.options.grid.grid => this.options.grid.map
-    map: GridMap
-    // Breaking: this.options.delegateTarget => this.options.grid.container
-    container: HTMLElement
-  } | undefined
-
-  // Event callbacks
-  // Breaking: Prefixing the this.options with "on"
-  onPointerDown?: Function
-  onClick?: Function
-  onStart?: Function
-  onStop?: Function
-
-  /**
-   * Add a callback to listen for log messages
-   * @param msg Message
-   * @param data Log event data
-   */
-  debugLogger?: ((id: string, msg: string, data?: any) => void) | false;
-}
-
-/**
- * Interface representing eventVars.drag object
- * These are properties which are specific to dragging and initialized in dragInit()
- */
-interface DragProperties {
-  // The element being dragged
-  draggedElement: HTMLElement
-
-  // Dragged element's position
-  elementX: number
-  elementY: number
-
-  // Last processed x and y pointer values
-  // This is used to prevent unncessary work if the pointer position did not change
-  lastProcessedX: number | null
-  lastProcessedY: number | null
-
-  // Dragged element's original position
-  elementX0: number
-  elementY0: number
-
-  // Difference between the dragged element position (edge) and the pointer position
-  deltaX: number;
-  deltaY: number;
-
-  /**
-   * Current id for window.requestAnimationFrame, part of the render loop
-   */
-  rafFrameId: number | null
-
-  /**
-   * Containment boundaries
-   * Set during dragInit() if this.options.containment is provided
-   *
-   * Note: Unlike this.options.containment, these are actual calculated lines/edges
-   */
-  containment: {
-    top: number
-    right: number
-    bottom: number
-    left: number
-  } | null
-
-  /**
-   * Snap edges (calculated lines) - set during dragInit() if this.options.snap is set
-   */
-  snap: {
-    top: number
-    right: number
-    bottom: number
-    left: number
-  } | null
-
-    /**
-   * Grid properties - set at dragInit() if optionns.grid is set
-   */
-  grid: {
-    /**
-     * Id of the dragged element in the grid
-     * This is a special grid id, not to be confused with actual element's id
-     * Each element in the grid has an id, stored in dataset.gridId
-     * FIXME: This id should be automatically assigned.
-     */
-    gridId: number
-    /**
-     * Grid cell width (in px)
-     * This is used to translate raw px positions to grid positions and vice versa
-     */
-    cellWidth: number
-    cellHeight: number
-    /**
-     * Reference to the HTMLElement which is the container for the grid
-     */
-    container: HTMLElement
-    /**
-     * Current position of dragged element in the grid
-     * The position is an integer representing the column in the grid
-     */
-    gridX: number
-    gridY: number
-    /**
-     * Previous grid positions which are used for comparison
-     */
-    lastGridX: number
-    lastGridY: number
-  } | null
-
-}
-
-/**
- * Interface representing the Draggable Event
- *
- * This is exposed in function callbacks
- */
-interface DraggableEvent {
-
-  // Type of the API being used
-  eventType: 'mouse' | 'touch' | 'pointer'
-
-  // Type of input device
-  inputDevice: 'mouse' | 'touch'
-
-  // Pointer id - use this to prevent multiple touches
-  pointerId: number
-
-  // The original element - if this.options.helper is disabled, this is also the dragged element
-  originalElement: HTMLElement
-
-  // Reference to the original event - changes over time as different events fire
-  // TODO: Set it in each event listener
-  originalEvent: Event;
-
-  // Current cursor position
-  pointerX: number
-  pointerY: number
-
-  // Cursor position at init
-  pointerX0: number
-  pointerY0: number
-
-  // FIXME: Is it necessary? Perhaps for the callbacks
-  // TODO: Instead of exposing this, expose the original event in each callback
-  // Whether the ctrl key is on
-  ctrlKey: boolean
-
-  // Expose the stop method to the this.dragEvent event
-  // Breaking: Disabled on 2020-09-28
-  // stop: Function
-
-  drag: DragProperties | null
-
-}
-
-/**
- * Interface representing event vars
- * In contrast to DraggableEvent, the additional properties here are private
- */
-interface DraggableEventVars extends DraggableEvent {
-
-    // Current calculated dragged element position
-    // elementX: number | null;
-    // elementY: number | null;
-}
-
-interface EventListeners {
-  [key: string]: SimpleEventListener | null
-}
+import type {
+  GridMap,
+  EventListeners,
+  Options,
+  DraggableEvent,
+  DragProperties,
+} from './types'
 
 /**
   * Simple, fast draggable library
-  * @param options
   */
 class Draggable {
   /**
@@ -322,7 +59,6 @@ class Draggable {
    */
   private enableCompositing = true;
 
-
   // const moveRate = new MeasureFrequency({
   //   requiredDataPoints: 1000,
   //   onCalculated: function(data) {
@@ -332,6 +68,10 @@ class Draggable {
   //   },
   // });
 
+  /**
+   *
+   * @param options Options
+   */
   constructor(options : Options) {
     // The start event to use, if Pointer API is not available, use touchstart + mousedown
     let startEventName;
@@ -934,7 +674,7 @@ class Draggable {
    * Retrieve the pointer id from event object
    * @param
    */
-  static getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
+  private static getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
     const eventType = Draggable.getEventType(e);
     let pointerId : number;
 
@@ -1117,7 +857,7 @@ class Draggable {
    * Get the event type
    * @param e Event instance
    */
-  static getEventType(e: Event) : string {
+  private static getEventType(e: Event) : string {
     // Note: Checking instanceof is much faster than processing contructor name
     if (e instanceof PointerEvent) {
       return 'pointer';
