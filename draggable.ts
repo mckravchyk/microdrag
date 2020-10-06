@@ -3,7 +3,7 @@ import {
   getHeight,
   getWindowWidth,
   getWindowHeight,
-} from './util/dom';
+} from '../util/dom';
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
 import { MeasureFrequency } from './util/measure_frequency';
@@ -11,7 +11,7 @@ import { MeasureFrequency } from './util/measure_frequency';
 // import type { SimpleEventListenerOptions } from '../util/SimpleEventListener';
 
 /**
- * Interface representing grid map for options.grid
+ * Interface representing grid map for this.options.grid
  * E.g. grid.map[y][x] = elementId
  */
 interface GridMap {
@@ -22,7 +22,7 @@ interface GridMap {
 }
 
 /**
- * Interface representing options / constructor arguments of Draggable
+ * Interface representing this.options / constructor arguments of Draggable
  */
 interface Options {
   // The element to make draggable
@@ -33,7 +33,7 @@ interface Options {
    * If enabled, the element will be cloned and the clone will be dragged.
    * Then the original element will re-appear where the clone was dropped
    *
-   * Breaking: options.helper = 'clone' to options.clone = { attachTo: cloneParent };
+   * Breaking: this.options.helper = 'clone' to this.options.clone = { attachTo: cloneParent };
    */
   clone?: {
     // Specify the target where the draggable element is to be attached
@@ -46,7 +46,7 @@ interface Options {
   /**
    * Containment - set drag boundaries which element will not cross
    *
-   * Breaking: Old usage: options.containment = Array<number>
+   * Breaking: Old usage: this.options.containment = Array<number>
    */
   containment?: {
     /**
@@ -79,7 +79,7 @@ interface Options {
   /**
    * Snap. Make the dragged element snap to edges
    *
-   * Breaking: Olds specs: options.snap = true; options.snapEdges = [];
+   * Breaking: Olds specs: this.options.snap = true; this.options.snapEdges = [];
    */
   snap?: {
     /**
@@ -110,14 +110,14 @@ interface Options {
   grid?: {
     cellWidth: number
     cellHeight: number
-    // Breaking: options.grid.grid => options.grid.map
+    // Breaking: this.options.grid.grid => this.options.grid.map
     map: GridMap
-    // Breaking: options.delegateTarget => options.grid.container
+    // Breaking: this.options.delegateTarget => this.options.grid.container
     container: HTMLElement
   } | undefined
 
   // Event callbacks
-  // Breaking: Prefixing the options with "on"
+  // Breaking: Prefixing the this.options with "on"
   onPointerDown?: Function
   onClick?: Function
   onStart?: Function
@@ -163,9 +163,9 @@ interface DragProperties {
 
   /**
    * Containment boundaries
-   * Set during dragInit() if options.containment is provided
+   * Set during dragInit() if this.options.containment is provided
    *
-   * Note: Unlike options.containment, these are actual calculated lines/edges
+   * Note: Unlike this.options.containment, these are actual calculated lines/edges
    */
   containment: {
     top: number
@@ -175,7 +175,7 @@ interface DragProperties {
   } | null
 
   /**
-   * Snap edges (calculated lines) - set during dragInit() if options.snap is set
+   * Snap edges (calculated lines) - set during dragInit() if this.options.snap is set
    */
   snap: {
     top: number
@@ -236,7 +236,7 @@ interface DraggableEvent {
   // Pointer id - use this to prevent multiple touches
   pointerId: number
 
-  // The original element - if options.helper is disabled, this is also the dragged element
+  // The original element - if this.options.helper is disabled, this is also the dragged element
   originalElement: HTMLElement
 
   // Reference to the original event - changes over time as different events fire
@@ -256,7 +256,7 @@ interface DraggableEvent {
   // Whether the ctrl key is on
   ctrlKey: boolean
 
-  // Expose the stop method to the dragEvent event
+  // Expose the stop method to the this.dragEvent event
   // Breaking: Disabled on 2020-09-28
   // stop: Function
 
@@ -283,33 +283,29 @@ interface EventListeners {
   * Simple, fast draggable library
   * @param options
   */
-const Draggable = function DraggableClass(options : Options) {
-  // Container for public methods
-  const self = {};
-
-  // For options.cancel
-  // if the pointer is initialized on excluded element, this will prevent the bubbling up
-  // @member
-  let cancelled = false;
+class Draggable {
+  /**
+   * Control variable to ignore the event on elements targeted by this.options.cancel
+   */
+  private cancelled = false;
 
   /**
-   * Public event properties
+   * Event properties
+   * This is reset every time the event starts
    */
-  let dragEvent: (DraggableEvent|null) = null;
+  private dragEvent: (DraggableEvent|null) = null;
+
+  private options : Options;
 
   /**
-   * Grid map representation (if options.grid)
+   * Grid map representation (if this.options.grid)
    */
-  let gridMap: (GridMap|null) = null;
+  private gridMap: (GridMap|null) = null;
 
   /**
-   * Runtime variables
+   * Container for eventListener references
    */
-
-  // Unused variable?
-  // let gridSwapped = null;
-
-  const eventListeners : EventListeners = {
+  private eventListeners : EventListeners = {
     start: null,
     cancelStart: null,
     move: null,
@@ -324,9 +320,8 @@ const Draggable = function DraggableClass(options : Options) {
    * However there might be side effects, such as blurred out fonts.
    *
    */
-  const enableCompositing = true;
+  private enableCompositing = true;
 
-  const startEventOverride: string|false = 'touchstart mousedown';
 
   // const moveRate = new MeasureFrequency({
   //   requiredDataPoints: 1000,
@@ -337,49 +332,57 @@ const Draggable = function DraggableClass(options : Options) {
   //   },
   // });
 
-  function construct() {
+  constructor(options : Options) {
     // The start event to use, if Pointer API is not available, use touchstart + mousedown
     let startEventName;
 
-    if (startEventOverride === false) {
+    if (typeof options.startEventOverride === 'undefined') {
       startEventName = (typeof window.PointerEvent !== 'undefined') ? 'pointerdown' : 'touchstart mousedown';
     } else {
-      startEventName = startEventOverride;
+      startEventName = options.startEventOverride;
     }
 
-    // const startEventName = 'touchstart mousedown';
+// startEventName = 'touchstart mousedown';
 
     // Attach cancelStart event if cancelStart is defined
     if (options.cancel) {
       // TODO: Implement a "mousestart" event as extension of SimpleEventListener
-      eventListeners.cancelStart = new SimpleEventListener({
+      this.eventListeners.cancelStart = new SimpleEventListener({
         target: options.element,
         eventName: startEventName,
         delegate: {
           selector: options.cancel,
         },
-        callback: cancelStart,
+        callback: (e : MouseEvent | PointerEvent | TouchEvent) => {
+          this.cancelStart(e);
+        },
       });
     }
 
+    const self = this;
+
     // Attach the start event on the draggable element
-    eventListeners.start = new SimpleEventListener({
+    this.eventListeners.start = new SimpleEventListener({
       target: options.element,
       eventName: startEventName,
-      callback: start,
+      callback(e : MouseEvent | PointerEvent | TouchEvent) {
+        self.start(e, this as unknown as HTMLElement);
+      },
     });
 
     if (typeof options.grid !== 'undefined') {
-      gridMap = options.grid.map;
+      this.gridMap = options.grid.map;
     }
+
+    this.options = options;
   }
 
-  self.destroy = function() {
-    for (const listener of Object.keys(eventListeners)) {
-      if (eventListeners[listener] !== null) {
+  public destroy() {
+    for (const listener of Object.keys(this.eventListeners)) {
+      if (this.eventListeners[listener] !== null) {
         // Using "!" operator - not sure why TypeScript fails here
-        eventListeners[listener]!.off();
-        eventListeners[listener] = null;
+        this.eventListeners[listener]!.off();
+        this.eventListeners[listener] = null;
       }
     }
   };
@@ -389,9 +392,9 @@ const Draggable = function DraggableClass(options : Options) {
    * @param e
    *
    */
-  function cancelStart(e : MouseEvent | PointerEvent | TouchEvent) {
-    // Prevent the start() event from blubbling up
-    cancelled = true;
+  private cancelStart(e : MouseEvent | PointerEvent | TouchEvent) {
+    // Prevent the start() event from bubbling up
+    this.cancelled = true;
 
     /**
      * Why not e.stopPropagation() ?
@@ -401,17 +404,17 @@ const Draggable = function DraggableClass(options : Options) {
      * We are not doing that, as it could interfere with broadly scoped event handlers of the app
      */
 
-    if (getEventType(e) === 'touch') {
+    if (Draggable.getEventType(e) === 'touch') {
       // Prevent the subsequent mousedown event from firing
       e.preventDefault();
     }
   }
 
-  function start(e : MouseEvent | PointerEvent | TouchEvent) {
-    // Exit if previously clicked on an excluded element (options.cancel)
-    if (cancelled) {
+  private start(e : MouseEvent | PointerEvent | TouchEvent, eventThis: HTMLElement) {
+    // Exit if previously clicked on an excluded element (this.options.cancel)
+    if (this.cancelled) {
       // Reset it for the next pointerdown
-      cancelled = false;
+      this.cancelled = false;
       return;
     }
 
@@ -424,18 +427,18 @@ const Draggable = function DraggableClass(options : Options) {
      * Prevents double firing of the event in "touchstart mousedown" setup
      * Prevents any other edge cases such as multiple-pointers
      */
-    if (dragEvent !== null) {
+    if (this.dragEvent !== null) {
       console.log('event already active!');
       return;
     }
 
-    if (eventListeners.move !== null || eventListeners.end !== null) {
+    if (this.eventListeners.move !== null || this.eventListeners.end !== null) {
       // This should never happen - if it does something is broken
       throw new Error('Event started but listeners are already registered.');
     }
 
     // Get the event type: mouse, touch or pointer
-    const eventType = <'mouse'|'touch'|'pointer'> getEventType(e);
+    const eventType = <'mouse'|'touch'|'pointer'> Draggable.getEventType(e);
 
     // Get the input device: mouse or touch
     const inputDevice = ((eventType === 'pointer' && (e as PointerEvent).pointerType === 'mouse') || eventType === 'mouse') ? 'mouse' : 'touch';
@@ -464,12 +467,12 @@ const Draggable = function DraggableClass(options : Options) {
     }
 
     // Initialize event args. See DraggableEvent interface for definitions
-    dragEvent = {
+    this.dragEvent = {
       eventType,
       inputDevice,
-      pointerId: getPointerId(e),
+      pointerId: Draggable.getPointerId(e),
       ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
-      originalElement: this,
+      originalElement: eventThis,
       originalEvent: e,
       pointerX0,
       pointerY0,
@@ -478,33 +481,37 @@ const Draggable = function DraggableClass(options : Options) {
       drag: null,
     };
 
-    // Execute pointerDown callback if supplied in the options
-    if (typeof options.onPointerDown === 'function') {
-      options.onPointerDown(dragEvent);
+    // Execute pointerDown callback if supplied in the this.options
+    if (typeof this.options.onPointerDown === 'function') {
+      this.options.onPointerDown(this.dragEvent);
     }
 
     // Attach move and pointerup events
-    // $(document).on(`${dragEvent.eventType}move.draggable`, move);
+    // $(document).on(`${this.dragEvent.eventType}move.draggable`, move);
     // $(document).on(`${endEvent}.draggable`, end);
 
     // Register move listener - the event type is deduced based on the start event type
-    eventListeners.move = new SimpleEventListener({
+    this.eventListeners.move = new SimpleEventListener({
       target: document,
-      eventName: `${dragEvent.eventType}move`,
-      callback: move,
+      eventName: `${this.dragEvent.eventType}move`,
+      callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
+        this.move(eInner);
+      },
     });
 
     // Register end/up listener - the event type is deduced based on the start event type
-    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((dragEvent.eventType === 'touch') ? `${dragEvent.eventType}end` : `${dragEvent.eventType}up`);
-    eventListeners.end = new SimpleEventListener({
+    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.dragEvent.eventType === 'touch') ? `${this.dragEvent.eventType}end` : `${this.dragEvent.eventType}up`);
+    this.eventListeners.end = new SimpleEventListener({
       target: document,
       eventName: endEvent,
-      callback: end,
+      callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
+        this.end(eInner);
+      },
     });
   }
 
-  function dragInit() {
-    if (dragEvent === null) {
+  private dragInit() {
+    if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
 
@@ -521,8 +528,8 @@ const Draggable = function DraggableClass(options : Options) {
     let containment: DragProperties['containment'] = null;
     let snap: DragProperties['containment'] = null;
 
-    // Create the draggable helper, if options.clone is enabled
-    if (typeof options.clone !== 'undefined') {
+    // Create the draggable helper, if this.options.clone is enabled
+    if (typeof this.options.clone !== 'undefined') {
       // @domWrite
     /**
      * Note: There is a possible layout thrashing if using the clone
@@ -531,11 +538,11 @@ const Draggable = function DraggableClass(options : Options) {
      *
      */
       // TODO: Add validation to check if attachTo exists
-      draggedElement = <HTMLElement> dragEvent.originalElement.cloneNode(true);
+      draggedElement = this.dragEvent.originalElement.cloneNode(true) as HTMLElement;
       draggedElement.setAttribute('id', '');
-      options.clone.attachTo.appendChild(draggedElement);
+      this.options.clone.attachTo.appendChild(draggedElement);
     } else {
-      draggedElement = dragEvent.originalElement;
+      draggedElement = this.dragEvent.originalElement;
     }
 
     // @domRead
@@ -543,13 +550,13 @@ const Draggable = function DraggableClass(options : Options) {
     const elementHeight = draggedElement.offsetHeight;
 
     // Set containment boundaries: minX, maxX, minY, maxY
-    if (options.containment) {
+    if (this.options.containment) {
       let minX;
       let minY;
       let maxX;
       let maxY;
 
-      const c = options.containment;
+      const c = this.options.containment;
       // domRead:
       const windowWidth = getWindowWidth();
       const windowHeight = getWindowHeight();
@@ -606,12 +613,12 @@ const Draggable = function DraggableClass(options : Options) {
 
     // Calculate snap edges
     // domRead:
-    if (options.snap) {
+    if (this.options.snap) {
       snap = {
-        top: options.snap.edges.top,
-        bottom: getWindowHeight() - elementHeight - options.snap.edges.bottom,
-        left: options.snap.edges.left,
-        right: getWindowWidth() - elementWidth - options.snap.edges.right,
+        top: this.options.snap.edges.top,
+        bottom: getWindowHeight() - elementHeight - this.options.snap.edges.bottom,
+        left: this.options.snap.edges.left,
+        right: getWindowWidth() - elementWidth - this.options.snap.edges.right,
       };
     }
 
@@ -621,8 +628,8 @@ const Draggable = function DraggableClass(options : Options) {
     elementX = parseInt(style.left, 10);
     elementY = parseInt(style.top, 10);
 
-    deltaX = dragEvent.pointerX0 - elementX;
-    deltaY = dragEvent.pointerY0 - elementY;
+    deltaX = this.dragEvent.pointerX0 - elementX;
+    deltaY = this.dragEvent.pointerY0 - elementY;
 
     elementX0 = elementX;
     elementY0 = elementY;
@@ -633,8 +640,8 @@ const Draggable = function DraggableClass(options : Options) {
      * Note: This function has to be placed after last dom read and before first dom write
      * So that the callback can both read and write to dom without unnecessary layout
      */
-    if (typeof options.onStart === 'function') {
-      options.onStart(dragEvent);
+    if (typeof this.options.onStart === 'function') {
+      this.options.onStart(this.dragEvent);
     }
 
     // Add class to the element being dragged
@@ -644,7 +651,7 @@ const Draggable = function DraggableClass(options : Options) {
     document.body.style.cursor = 'move'; // @domWrite
 
     // Populate drag properties
-    dragEvent.drag = {
+    this.dragEvent.drag = {
       draggedElement,
       deltaX,
       deltaY,
@@ -661,8 +668,8 @@ const Draggable = function DraggableClass(options : Options) {
       grid: null,
     };
 
-    if (typeof options.grid !== 'undefined') {
-      dragInitGrid();
+    if (typeof this.options.grid !== 'undefined') {
+      this.dragInitGrid();
     }
   }
 
@@ -670,21 +677,21 @@ const Draggable = function DraggableClass(options : Options) {
    * Fires each time the pointer moves
    * @param e
    */
-  function move(e : MouseEvent | PointerEvent | TouchEvent) {
-    if (dragEvent === null) {
+  private move(e : MouseEvent | PointerEvent | TouchEvent) {
+    if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
-    if (!checkPointerId(e)) {
+    if (!this.checkPointerId(e)) {
       return;
     }
 
     // Update position
-    if (dragEvent.eventType === 'touch') {
-      dragEvent.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
-      dragEvent.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
+    if (this.dragEvent.eventType === 'touch') {
+      this.dragEvent.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
+      this.dragEvent.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
     } else {
-      dragEvent.pointerX = (<PointerEvent|MouseEvent>e).clientX;
-      dragEvent.pointerY = (<PointerEvent|MouseEvent>e).clientY;
+      this.dragEvent.pointerX = (<PointerEvent|MouseEvent>e).clientX;
+      this.dragEvent.pointerY = (<PointerEvent|MouseEvent>e).clientY;
     }
 
     /**
@@ -693,22 +700,24 @@ const Draggable = function DraggableClass(options : Options) {
      */
 
     // Don't initiate if delta distance is too small
-    if (dragEvent.drag === null
+    if (this.dragEvent.drag === null
       && Math.sqrt(
-        (dragEvent.pointerX0 - dragEvent.pointerX) * (dragEvent.pointerX0 - dragEvent.pointerX)
-        + (dragEvent.pointerY0 - dragEvent.pointerY) * (dragEvent.pointerY0 - dragEvent.pointerY),
+        (this.dragEvent.pointerX0 - this.dragEvent.pointerX) * (this.dragEvent.pointerX0 - this.dragEvent.pointerX)
+        + (this.dragEvent.pointerY0 - this.dragEvent.pointerY) * (this.dragEvent.pointerY0 - this.dragEvent.pointerY),
       ) > 2
     ) {
       // Initialize the drag
       console.log('dragInit()');
-      dragInit();
+      this.dragInit();
     }
 
-    // console.log(`move(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+    // console.log(`move(${this.dragEvent.pointerX}, ${this.dragEvent.pointerY})`);
 
     // Schedule animation frame to process move
-    if (dragEvent.drag !== null && dragEvent.drag.rafFrameId === null) {
-      dragEvent.drag.rafFrameId = requestAnimationFrame(rafProcessMove);
+    if (this.dragEvent.drag !== null && this.dragEvent.drag.rafFrameId === null) {
+      this.dragEvent.drag.rafFrameId = requestAnimationFrame(() => {
+        this.rafProcessMove();
+      });
       /**
        * Note: In some browsers it would be possible to skip requestAnimationFrame althogether
        * However there is no reliable way to check if the browser schedules
@@ -719,215 +728,214 @@ const Draggable = function DraggableClass(options : Options) {
 
   /**
    * Process move - requestAnimationFrame callback
-   * @param timestamp DOMHighResTimeStamp
    */
-  function rafProcessMove(timestamp: number): void {
+  private rafProcessMove(): void {
     // This must not be allowed as the render loop is expected to be cancelled on stop
-    if (dragEvent === null || dragEvent.drag === null) {
+    if (this.dragEvent === null || this.dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
     // This indicates that the frame has been processed and another one will have to be scheduled
-    dragEvent.drag.rafFrameId = null;
+    this.dragEvent.drag.rafFrameId = null;
 
     // Call the process move functions
-    processMove();
+    this.processMove();
   }
 
-  function processMove() {
-    if (dragEvent === null || dragEvent.drag === null) {
+  private processMove() {
+    if (this.dragEvent === null || this.dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
     // Exit if the position didn't change
     if (
-      dragEvent.drag.lastProcessedX === dragEvent.pointerX
-      && dragEvent.drag.lastProcessedY === dragEvent.pointerY
+      this.dragEvent.drag.lastProcessedX === this.dragEvent.pointerX
+      && this.dragEvent.drag.lastProcessedY === this.dragEvent.pointerY
     ) {
       console.log('Pointer position did not change, skipping...');
       return;
     }
 
-    dragEvent.drag.lastProcessedX = dragEvent.pointerX;
-    dragEvent.drag.lastProcessedY = dragEvent.pointerY;
+    this.dragEvent.drag.lastProcessedX = this.dragEvent.pointerX;
+    this.dragEvent.drag.lastProcessedY = this.dragEvent.pointerY;
 
     // console.log('updating position');
 
     // Calculate the dragged element position
-    let newLeft = dragEvent.pointerX - dragEvent.drag.deltaX;
-    let newTop = dragEvent.pointerY - dragEvent.drag.deltaY;
+    let newLeft = this.dragEvent.pointerX - this.dragEvent.drag.deltaX;
+    let newTop = this.dragEvent.pointerY - this.dragEvent.drag.deltaY;
 
     // Sanitize the position by containment boundaries
-    if (dragEvent.drag.containment !== null) {
+    if (this.dragEvent.drag.containment !== null) {
       // moveProcessContainment();
       // X-axis
-      if (newLeft < dragEvent.drag.containment.left) {
-        newLeft = dragEvent.drag.containment.left;
-      } else if (newLeft > dragEvent.drag.containment.right) {
-        newLeft = dragEvent.drag.containment.right;
+      if (newLeft < this.dragEvent.drag.containment.left) {
+        newLeft = this.dragEvent.drag.containment.left;
+      } else if (newLeft > this.dragEvent.drag.containment.right) {
+        newLeft = this.dragEvent.drag.containment.right;
       }
       // Y-axis
-      if (newTop < dragEvent.drag.containment.top) {
-        newTop = dragEvent.drag.containment.top;
-      } else if (newTop > dragEvent.drag.containment.bottom) {
-        newTop = dragEvent.drag.containment.bottom;
+      if (newTop < this.dragEvent.drag.containment.top) {
+        newTop = this.dragEvent.drag.containment.top;
+      } else if (newTop > this.dragEvent.drag.containment.bottom) {
+        newTop = this.dragEvent.drag.containment.bottom;
       }
     }
 
     // Sanitize the position for the snap feature
-    if (dragEvent.drag.snap !== null) {
+    if (this.dragEvent.drag.snap !== null) {
       // moveProcessSnap();
       // X-axis
       // TODO: No magic numbers for sensitivity - add an option
-      if (Math.abs(newLeft - dragEvent.drag.snap.left) < 10) {
-        newLeft = dragEvent.drag.snap.left;
-      } else if (Math.abs(newLeft - dragEvent.drag.snap.right) < 10) {
-        newLeft = dragEvent.drag.snap.right;
+      if (Math.abs(newLeft - this.dragEvent.drag.snap.left) < 10) {
+        newLeft = this.dragEvent.drag.snap.left;
+      } else if (Math.abs(newLeft - this.dragEvent.drag.snap.right) < 10) {
+        newLeft = this.dragEvent.drag.snap.right;
       }
       // Y-axis
-      if (Math.abs(newTop - dragEvent.drag.snap.top) < 10) {
-        newTop = dragEvent.drag.snap.top;
-      } else if (Math.abs(newTop - dragEvent.drag.snap.bottom) < 10) {
-        newTop = dragEvent.drag.snap.bottom;
+      if (Math.abs(newTop - this.dragEvent.drag.snap.top) < 10) {
+        newTop = this.dragEvent.drag.snap.top;
+      } else if (Math.abs(newTop - this.dragEvent.drag.snap.bottom) < 10) {
+        newTop = this.dragEvent.drag.snap.bottom;
       }
     }
 
     // Update element position representation
-    dragEvent.drag.elementX = newLeft;
-    dragEvent.drag.elementY = newTop;
+    this.dragEvent.drag.elementX = newLeft;
+    this.dragEvent.drag.elementY = newTop;
 
-    renderMove();
+    this.renderMove();
   }
 
   /**
    * Render the current dragged element position on DOM
    */
-  function renderMove() : void {
-    if (dragEvent === null || dragEvent.drag === null) {
+  private renderMove() : void {
+    if (this.dragEvent === null || this.dragEvent.drag === null) {
       throw new Error('Unexpected call');
     }
 
-    // console.log(`renderMove(${dragEvent.pointerX}, ${dragEvent.pointerY})`);
+    // console.log(`renderMove(${this.dragEvent.pointerX}, ${this.dragEvent.pointerY})`);
 
     // Update the dragged element position in the DOM
-    if (enableCompositing) {
-      const transformX = dragEvent.drag.elementX - dragEvent.drag.elementX0;
-      const transformY = dragEvent.drag.elementY - dragEvent.drag.elementY0;
-      dragEvent.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
+    if (this.enableCompositing) {
+      const transformX = this.dragEvent.drag.elementX - this.dragEvent.drag.elementX0;
+      const transformY = this.dragEvent.drag.elementY - this.dragEvent.drag.elementY0;
+      this.dragEvent.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
     } else {
-      dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`; // @domWrite
-      dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`; // @domWrite
+      this.dragEvent.drag.draggedElement.style.left = `${this.dragEvent.drag.elementX}px`; // @domWrite
+      this.dragEvent.drag.draggedElement.style.top = `${this.dragEvent.drag.elementY}px`; // @domWrite
     }
 
     // Process grid changes if using grid, this will also update the swapped element position
-    if (dragEvent.drag.grid !== null) {
-      processGridUpdate();
+    if (this.dragEvent.drag.grid !== null) {
+      this.processGridUpdate();
     }
   }
 
   /**
    * Stops the drag event
    */
-  function end(e : MouseEvent | TouchEvent | PointerEvent) {
-    if (dragEvent === null) {
+  private end(e : MouseEvent | TouchEvent | PointerEvent) {
+    if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
 
     // Exit if the pointer id does not match
-    if (!checkPointerId(e)) {
+    if (!this.checkPointerId(e)) {
       return;
     }
 
-    dragEvent.originalEvent = e;
+    this.dragEvent.originalEvent = e;
 
-    dragEvent.ctrlKey = (dragEvent.inputDevice === 'mouse' && e.ctrlKey);
+    this.dragEvent.ctrlKey = (this.dragEvent.inputDevice === 'mouse' && e.ctrlKey);
 
     // If dragging was initialized
-    if (dragEvent.drag !== null) {
+    if (this.dragEvent.drag !== null) {
       // Stop requestAnimationFrame if scheduled
-      if (dragEvent.drag.rafFrameId !== null) {
-        window.cancelAnimationFrame(dragEvent.drag.rafFrameId);
-        dragEvent.drag.rafFrameId = null;
+      if (this.dragEvent.drag.rafFrameId !== null) {
+        window.cancelAnimationFrame(this.dragEvent.drag.rafFrameId);
+        this.dragEvent.drag.rafFrameId = null;
       }
 
       // Manually call processMove() to render the last frame
-      processMove();
+      this.processMove();
 
       // Execute onStop callback if supplied
-      if (typeof options.onStop === 'function') {
-        options.onStop(dragEvent);
+      if (typeof this.options.onStop === 'function') {
+        this.options.onStop(this.dragEvent);
       }
 
       // Reset the cursor style
       document.body.style.cursor = ''; // @domWrite
 
       // Remove the draggable-dragging class from the element
-      // $(dragEvent.draggedElement).removeClass('draggable-dragging');
-      dragEvent.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
+      // $(this.dragEvent.draggedElement).removeClass('draggable-dragging');
+      this.dragEvent.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
 
       // If using composite layer - clean up the transform, pply the position as left/top position
-      if (enableCompositing) {
+      if (this.enableCompositing) {
         // FIXME: What if the element has existing transformation applied?
-        dragEvent.drag.draggedElement.style.left = `${dragEvent.drag.elementX}px`;
-        dragEvent.drag.draggedElement.style.top = `${dragEvent.drag.elementY}px`;
-        dragEvent.drag.draggedElement.style.transform = '';
+        this.dragEvent.drag.draggedElement.style.left = `${this.dragEvent.drag.elementX}px`;
+        this.dragEvent.drag.draggedElement.style.top = `${this.dragEvent.drag.elementY}px`;
+        this.dragEvent.drag.draggedElement.style.transform = '';
       }
 
       // Remove the clone helper if it was enabled
-      if (options.clone) {
-        // $(dragEvent.draggedElement).remove();
-        // dragEvent.draggedElement.remove();
-        options.clone.attachTo.removeChild(dragEvent.drag.draggedElement); // @domWrite
+      if (this.options.clone) {
+        // $(this.dragEvent.draggedElement).remove();
+        // this.dragEvent.draggedElement.remove();
+        this.options.clone.attachTo.removeChild(this.dragEvent.drag.draggedElement); // @domWrite
       // FIXME: It seems like relocating the dragged element is not part of the implementation?
       }
 
       // If grid - update set the final position of the element
-      if (dragEvent.drag.grid !== null) {
+      if (this.dragEvent.drag.grid !== null) {
         // @domWrite
-        dragEvent.originalElement.style.left = `${(dragEvent.drag.grid.gridX * dragEvent.drag.grid.cellWidth)}px`;
-        dragEvent.originalElement.style.top = `${(dragEvent.drag.grid.gridY * dragEvent.drag.grid.cellHeight)}px`;
+        this.dragEvent.originalElement.style.left = `${(this.dragEvent.drag.grid.gridX * this.dragEvent.drag.grid.cellWidth)}px`;
+        this.dragEvent.originalElement.style.top = `${(this.dragEvent.drag.grid.gridY * this.dragEvent.drag.grid.cellHeight)}px`;
       }
 
       // // Null the drag properties object
-      // dragEvent.drag = null;
+      // this.dragEvent.drag = null;
 
       // Else if dragging not in progress
-    } else if (typeof options.onClick === 'function') {
+    } else if (typeof this.options.onClick === 'function') {
       // Execute click callback if defined
-      options.onClick(dragEvent);
+      this.options.onClick(this.dragEvent);
     }
 
     // Call the stop method
-    stop();
+    this.stop();
   }
 
-  function stop() {
-    if (dragEvent === null) {
+  private stop() {
+    if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
 
     console.log('Event stopped');
 
-    if (eventListeners.move !== null) {
-      eventListeners.move.off();
-      eventListeners.move = null;
+    if (this.eventListeners.move !== null) {
+      this.eventListeners.move.off();
+      this.eventListeners.move = null;
     }
 
-    if (eventListeners.end !== null) {
-      eventListeners.end.off();
-      eventListeners.end = null;
+    if (this.eventListeners.end !== null) {
+      this.eventListeners.end.off();
+      this.eventListeners.end = null;
     }
 
-    dragEvent.drag = null;
-    dragEvent = null;
+    this.dragEvent.drag = null;
+    this.dragEvent = null;
   }
 
   /**
    * Retrieve the pointer id from event object
    * @param
    */
-  function getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
-    const eventType = getEventType(e);
+  static getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
+    const eventType = Draggable.getEventType(e);
     let pointerId : number;
 
     if (eventType === 'touch') {
@@ -944,58 +952,62 @@ const Draggable = function DraggableClass(options : Options) {
    * Check if the DOM Event pointer id matches the pointer which initiated drag
    * @param e DOM Event to check
    */
-  function checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
-    if (dragEvent === null) {
+  private checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
+    if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
-    return (getPointerId(e) === dragEvent.pointerId);
+    return (Draggable.getPointerId(e) === this.dragEvent.pointerId);
   }
 
   /**
    * Calculate the dragged element position to be set on a grid
    */
-  function calculateGridHelperPosition() {
-    if (dragEvent === null || dragEvent.drag === null || dragEvent.drag.grid === null) {
+  private calculateGridHelperPosition() {
+    if (
+      this.dragEvent === null
+      || this.dragEvent.drag === null
+      || this.dragEvent.drag.grid === null
+    ) {
       throw new Error('Unexpected call');
     }
 
-    if (dragEvent.drag.elementX !== dragEvent.pointerX - dragEvent.drag.deltaX) {
+    if (this.dragEvent.drag.elementX !== this.dragEvent.pointerX - this.dragEvent.drag.deltaX) {
       // console.log('Warning: X difference');
     }
 
-    if (dragEvent.drag.elementY !== dragEvent.pointerY - dragEvent.drag.deltaY) {
+    if (this.dragEvent.drag.elementY !== this.dragEvent.pointerY - this.dragEvent.drag.deltaY) {
       // console.log('Warning: Y difference');
     }
 
-    let x = dragEvent.drag.elementX;
-    // var x = dragEvent.pointerX - deltaX;
+    let x = this.dragEvent.drag.elementX;
+    // var x = this.dragEvent.pointerX - deltaX;
 
-    x = Math.round(x / dragEvent.drag.grid.cellWidth);
+    x = Math.round(x / this.dragEvent.drag.grid.cellWidth);
 
-    let y = dragEvent.drag.elementY;
-    // var y = dragEvent.pointerY - deltaY;
+    let y = this.dragEvent.drag.elementY;
+    // var y = this.dragEvent.pointerY - deltaY;
 
-    y = Math.round(y / dragEvent.drag.grid.cellHeight);
+    y = Math.round(y / this.dragEvent.drag.grid.cellHeight);
 
-    dragEvent.drag.grid.gridX = x;
-    dragEvent.drag.grid.gridY = y;
+    this.dragEvent.drag.grid.gridX = x;
+    this.dragEvent.drag.grid.gridY = y;
   }
 
   /**
-   * Set up grid helper options - used by dragInit()
+   * Set up grid helper this.options - used by dragInit()
    */
-  function dragInitGrid() {
-    if (dragEvent === null || dragEvent.drag === null || typeof options.grid === 'undefined') {
+  private dragInitGrid() {
+    if (this.dragEvent === null || this.dragEvent.drag === null || typeof this.options.grid === 'undefined') {
       throw new Error('Unexpected call');
     }
 
     // Set the object with grid properties
-    dragEvent.drag.grid = {
+    this.dragEvent.drag.grid = {
       // FIXME: Assign grid ids
-      gridId: parseInt(dragEvent.originalElement.dataset.gridId, 10), // @domRead
-      container: options.grid.container,
-      cellWidth: options.grid.cellWidth,
-      cellHeight: options.grid.cellHeight,
+      gridId: parseInt(this.dragEvent.originalElement.dataset.gridId, 10), // @domRead
+      container: this.options.grid.container,
+      cellWidth: this.options.grid.cellWidth,
+      cellHeight: this.options.grid.cellHeight,
       gridX: 0,
       gridY: 0,
       lastGridX: 0,
@@ -1003,11 +1015,11 @@ const Draggable = function DraggableClass(options : Options) {
     };
 
     // This will populate gridX and gridY properties of eventVars.grid
-    calculateGridHelperPosition();
+    this.calculateGridHelperPosition();
 
     // Populate the last position variables
-    dragEvent.drag.grid.lastGridX = dragEvent.drag.grid.gridX;
-    dragEvent.drag.grid.lastGridY = dragEvent.drag.grid.gridY;
+    this.dragEvent.drag.grid.lastGridX = this.dragEvent.drag.grid.gridX;
+    this.dragEvent.drag.grid.lastGridY = this.dragEvent.drag.grid.gridY;
 
     // gridSwapped = null;
   }
@@ -1016,8 +1028,9 @@ const Draggable = function DraggableClass(options : Options) {
    * Update the grid representation and update position of the swapped element
    * Used by renderMove()
    */
-  function processGridUpdate() : void {
-    if (dragEvent === null || dragEvent.drag === null || dragEvent.drag.grid === null || gridMap === null) {
+  private processGridUpdate() : void {
+    if (this.dragEvent === null || this.dragEvent.drag === null
+      || this.dragEvent.drag.grid === null || this.gridMap === null) {
       throw new Error('Unexpected call');
     }
 
@@ -1036,12 +1049,12 @@ const Draggable = function DraggableClass(options : Options) {
     //swappedElementID = -1 or ID
     */
 
-    calculateGridHelperPosition();
+    this.calculateGridHelperPosition();
 
     // If the position of the helper changes in the grid
     if (
-      dragEvent.drag.grid.gridX !== dragEvent.drag.grid.lastGridX
-      || dragEvent.drag.grid.gridY !== dragEvent.drag.grid.lastGridY
+      this.dragEvent.drag.grid.gridX !== this.dragEvent.drag.grid.lastGridX
+      || this.dragEvent.drag.grid.gridY !== this.dragEvent.drag.grid.lastGridY
     ) {
       /**
        * Swap grid elements
@@ -1055,41 +1068,41 @@ const Draggable = function DraggableClass(options : Options) {
       let swappedElementID : number | null = null;
 
       if (
-        typeof gridMap[dragEvent.drag.grid.gridY] !== 'undefined'
-        && typeof gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX] !== 'undefined'
+        typeof this.gridMap[this.dragEvent.drag.grid.gridY] !== 'undefined'
+        && typeof this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX] !== 'undefined'
       ) {
-        swappedElementID = gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX];
+        swappedElementID = this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX];
       }
 
       // If element exists - swap it with the old position
       if (swappedElementID !== null) {
-        const swapped = <HTMLElement> dragEvent.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
+        const swapped = <HTMLElement> this.dragEvent.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
 
         // Put the swapped element on the previous slot in the grid
-        gridMap[dragEvent.drag.grid.lastGridY][dragEvent.drag.grid.lastGridX] = swappedElementID;
+        this.gridMap[this.dragEvent.drag.grid.lastGridY][this.dragEvent.drag.grid.lastGridX] = swappedElementID;
 
         // Update swapped element position in the dom
-        swapped.style.left = `${(dragEvent.drag.grid.lastGridX * dragEvent.drag.grid.cellWidth)}px`; // @domWrite
-        swapped.style.top = `${(dragEvent.drag.grid.lastGridY * dragEvent.drag.grid.cellHeight)}px`; // @domWrite
+        swapped.style.left = `${(this.dragEvent.drag.grid.lastGridX * this.dragEvent.drag.grid.cellWidth)}px`; // @domWrite
+        swapped.style.top = `${(this.dragEvent.drag.grid.lastGridY * this.dragEvent.drag.grid.cellHeight)}px`; // @domWrite
       } else {
         // Indicate that the previous position on the grid is empty (no element was swapped)
-        gridMap[dragEvent.drag.grid.lastGridY][dragEvent.drag.grid.lastGridX] = null;
+        this.gridMap[this.dragEvent.drag.grid.lastGridY][this.dragEvent.drag.grid.lastGridX] = null;
       }
 
       // Put the dragged element in the current slot on the grid
-      gridMap[dragEvent.drag.grid.gridY][dragEvent.drag.grid.gridX] = dragEvent.drag.grid.gridId;
+      this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX] = this.dragEvent.drag.grid.gridId;
 
       // Note: The dragged element position has already been updated before this if block
 
-      console.log(`Grid X: ${dragEvent.drag.grid.gridX} Grid Y: ${dragEvent.drag.grid.gridY}`);
-      console.log(`Grid helper id: ${dragEvent.drag.grid.gridId}`);
+      console.log(`Grid X: ${this.dragEvent.drag.grid.gridX} Grid Y: ${this.dragEvent.drag.grid.gridY}`);
+      console.log(`Grid helper id: ${this.dragEvent.drag.grid.gridId}`);
       console.log(`Swapped element ID: ${swappedElementID}`);
 
       // Cache the previous position to be used in calculations
-      dragEvent.drag.grid.lastGridX = dragEvent.drag.grid.gridX;
-      dragEvent.drag.grid.lastGridY = dragEvent.drag.grid.gridY;
+      this.dragEvent.drag.grid.lastGridX = this.dragEvent.drag.grid.gridX;
+      this.dragEvent.drag.grid.lastGridY = this.dragEvent.drag.grid.gridY;
 
-      // if (options.debugLogger) {
+      // if (this.options.debugLogger) {
       //   logger('gridSwap', 'grid element swapped', {
       //     gridX: gridX,
       //     gridY: gridY,
@@ -1103,9 +1116,8 @@ const Draggable = function DraggableClass(options : Options) {
   /**
    * Get the event type
    * @param e Event instance
-   * @public static
    */
-  function getEventType(e: Event) : string {
+  static getEventType(e: Event) : string {
     // Note: Checking instanceof is much faster than processing contructor name
     if (e instanceof PointerEvent) {
       return 'pointer';
@@ -1121,12 +1133,9 @@ const Draggable = function DraggableClass(options : Options) {
   }
 
   //TODO: Re-implement it without jQuery
-  self.setOptions = function(_options) {
-    // $.extend(true, options, _options);
+  public setOptions(_options) {
+    // $.extend(true, this.options, _this.options);
   };
-
-  construct();
-  return self;
 };
 
 export default Draggable;
