@@ -6,15 +6,15 @@ import {
 } from './util/dom';
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
-import { MeasureFrequency } from './util/measure_frequency';
-
 
 import type {
   GridMap,
   EventListeners,
   Options,
   DraggableEvent,
+  EventProperties,
   DragProperties,
+  PointerEvents,
 } from './types'
 
 /**
@@ -30,7 +30,7 @@ class Draggable {
    * Event properties
    * This is reset every time the event starts
    */
-  private dragEvent: (DraggableEvent|null) = null;
+  private dragEvent: (EventProperties|null) = null;
 
   private options : Options;
 
@@ -42,7 +42,7 @@ class Draggable {
   /**
    * Container for eventListener references
    */
-  private eventListeners : EventListeners = {
+  private listeners : EventListeners = {
     start: null,
     cancelStart: null,
     move: null,
@@ -82,18 +82,16 @@ class Draggable {
       startEventName = options.startEventOverride;
     }
 
-// startEventName = 'touchstart mousedown';
-
     // Attach cancelStart event if cancelStart is defined
     if (options.cancel) {
       // TODO: Implement a "mousestart" event as extension of SimpleEventListener
-      this.eventListeners.cancelStart = new SimpleEventListener({
+      this.listeners.cancelStart = new SimpleEventListener({
         target: options.element,
         eventName: startEventName,
         delegate: {
           selector: options.cancel,
         },
-        callback: (e : MouseEvent | PointerEvent | TouchEvent) => {
+        callback: (e : PointerEvents) => {
           this.cancelStart(e);
         },
       });
@@ -102,10 +100,10 @@ class Draggable {
     const self = this;
 
     // Attach the start event on the draggable element
-    this.eventListeners.start = new SimpleEventListener({
+    this.listeners.start = new SimpleEventListener({
       target: options.element,
       eventName: startEventName,
-      callback(e : MouseEvent | PointerEvent | TouchEvent) {
+      callback(e : PointerEvents) {
         self.start(e, this as unknown as HTMLElement);
       },
     });
@@ -118,11 +116,11 @@ class Draggable {
   }
 
   public destroy() {
-    for (const listener of Object.keys(this.eventListeners)) {
-      if (this.eventListeners[listener] !== null) {
+    for (const listener of Object.keys(this.listeners)) {
+      if (this.listeners[listener] !== null) {
         // Using "!" operator - not sure why TypeScript fails here
-        this.eventListeners[listener]!.off();
-        this.eventListeners[listener] = null;
+        this.listeners[listener]!.off();
+        this.listeners[listener] = null;
       }
     }
   };
@@ -132,7 +130,7 @@ class Draggable {
    * @param e
    *
    */
-  private cancelStart(e : MouseEvent | PointerEvent | TouchEvent) {
+  private cancelStart(e : PointerEvents) {
     // Prevent the start() event from bubbling up
     this.cancelled = true;
 
@@ -150,7 +148,7 @@ class Draggable {
     }
   }
 
-  private start(e : MouseEvent | PointerEvent | TouchEvent, eventThis: HTMLElement) {
+  private start(e : PointerEvents, eventThis: HTMLElement) {
     // Exit if previously clicked on an excluded element (this.options.cancel)
     if (this.cancelled) {
       // Reset it for the next pointerdown
@@ -172,7 +170,7 @@ class Draggable {
       return;
     }
 
-    if (this.eventListeners.move !== null || this.eventListeners.end !== null) {
+    if (this.listeners.move !== null || this.listeners.end !== null) {
       // This should never happen - if it does something is broken
       throw new Error('Event started but listeners are already registered.');
     }
@@ -223,7 +221,7 @@ class Draggable {
 
     // Execute pointerDown callback if supplied in the this.options
     if (typeof this.options.onPointerDown === 'function') {
-      this.options.onPointerDown(this.dragEvent);
+      this.options.onPointerDown.call(eventThis, this.getPublicEventProps('pointerdown', e));
     }
 
     // Attach move and pointerup events
@@ -231,7 +229,7 @@ class Draggable {
     // $(document).on(`${endEvent}.draggable`, end);
 
     // Register move listener - the event type is deduced based on the start event type
-    this.eventListeners.move = new SimpleEventListener({
+    this.listeners.move = new SimpleEventListener({
       target: document,
       eventName: `${this.dragEvent.eventType}move`,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
@@ -241,7 +239,7 @@ class Draggable {
 
     // Register end/up listener - the event type is deduced based on the start event type
     const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.dragEvent.eventType === 'touch') ? `${this.dragEvent.eventType}end` : `${this.dragEvent.eventType}up`);
-    this.eventListeners.end = new SimpleEventListener({
+    this.listeners.end = new SimpleEventListener({
       target: document,
       eventName: endEvent,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
@@ -250,7 +248,7 @@ class Draggable {
     });
   }
 
-  private dragInit() {
+  private dragInit(e: PointerEvents) {
     if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
@@ -374,22 +372,6 @@ class Draggable {
     elementX0 = elementX;
     elementY0 = elementY;
 
-    /**
-     * Call onStart callback if defined
-     *
-     * Note: This function has to be placed after last dom read and before first dom write
-     * So that the callback can both read and write to dom without unnecessary layout
-     */
-    if (typeof this.options.onStart === 'function') {
-      this.options.onStart(this.dragEvent);
-    }
-
-    // Add class to the element being dragged
-    draggedElement.className += ' draggable-dragging'; // @domWrite
-
-    // Enable drag cursor
-    document.body.style.cursor = 'move'; // @domWrite
-
     // Populate drag properties
     this.dragEvent.drag = {
       draggedElement,
@@ -408,6 +390,22 @@ class Draggable {
       grid: null,
     };
 
+    /**
+     * Call onStart callback if defined
+     *
+     * Note: This function has to be placed after last dom read and before first dom write
+     * So that the callback can both read and write to dom without unnecessary layout
+     */
+    if (typeof this.options.onStart === 'function') {
+      this.options.onStart.call(draggedElement, this.getPublicEventProps('start', e));
+    }
+
+    // Add class to the element being dragged
+    draggedElement.className += ' draggable-dragging'; // @domWrite
+
+    // Enable drag cursor
+    document.body.style.cursor = 'move'; // @domWrite
+
     if (typeof this.options.grid !== 'undefined') {
       this.dragInitGrid();
     }
@@ -417,7 +415,7 @@ class Draggable {
    * Fires each time the pointer moves
    * @param e
    */
-  private move(e : MouseEvent | PointerEvent | TouchEvent) {
+  private move(e : PointerEvents) {
     if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
@@ -448,7 +446,7 @@ class Draggable {
     ) {
       // Initialize the drag
       console.log('dragInit()');
-      this.dragInit();
+      this.dragInit(e);
     }
 
     // console.log(`move(${this.dragEvent.pointerX}, ${this.dragEvent.pointerY})`);
@@ -576,7 +574,7 @@ class Draggable {
   /**
    * Stops the drag event
    */
-  private end(e : MouseEvent | TouchEvent | PointerEvent) {
+  private end(e : PointerEvents) {
     if (this.dragEvent === null) {
       throw new Error('Unexpected call');
     }
@@ -603,7 +601,7 @@ class Draggable {
 
       // Execute onStop callback if supplied
       if (typeof this.options.onStop === 'function') {
-        this.options.onStop(this.dragEvent);
+        this.options.onStop.call(this.dragEvent.drag.draggedElement, this.getPublicEventProps('stop', e));
       }
 
       // Reset the cursor style
@@ -642,7 +640,7 @@ class Draggable {
       // Else if dragging not in progress
     } else if (typeof this.options.onClick === 'function') {
       // Execute click callback if defined
-      this.options.onClick(this.dragEvent);
+      this.options.onClick.call(this.dragEvent.originalElement, this.getPublicEventProps('click', e));
     }
 
     // Call the stop method
@@ -656,14 +654,14 @@ class Draggable {
 
     console.log('Event stopped');
 
-    if (this.eventListeners.move !== null) {
-      this.eventListeners.move.off();
-      this.eventListeners.move = null;
+    if (this.listeners.move !== null) {
+      this.listeners.move.off();
+      this.listeners.move = null;
     }
 
-    if (this.eventListeners.end !== null) {
-      this.eventListeners.end.off();
-      this.eventListeners.end = null;
+    if (this.listeners.end !== null) {
+      this.listeners.end.off();
+      this.listeners.end = null;
     }
 
     this.dragEvent.drag = null;
@@ -671,10 +669,38 @@ class Draggable {
   }
 
   /**
+   * Get properties for event callbacks
+   * @param eventName The name of the event
+   * @param originalEvent The original DOM event
+   */
+  private getPublicEventProps(eventName: string, originalEvent: PointerEvents) : DraggableEvent {
+    if (this.dragEvent === null) {
+      throw new Error('Unexpected call');
+    }
+
+    return {
+      eventType: this.dragEvent.eventType,
+      inputDevice: this.dragEvent.inputDevice,
+      pointerId: this.dragEvent.pointerId,
+      originalElement: this.dragEvent.originalElement,
+      pointerX: this.dragEvent.pointerX,
+      pointerY: this.dragEvent.pointerY,
+      pointerX0: this.dragEvent.pointerX0,
+      pointerY0: this.dragEvent.pointerY0,
+      ctrlKey: this.dragEvent.ctrlKey,
+      eventName,
+      originalEvent,
+      elementX: (this.dragEvent.drag !== null) ? this.dragEvent.drag.elementX : null,
+      elementY: (this.dragEvent.drag !== null) ? this.dragEvent.drag.elementY : null,
+      draggedElement: (this.dragEvent.drag !== null) ? this.dragEvent.drag.draggedElement : null,
+    };
+  }
+
+  /**
    * Retrieve the pointer id from event object
    * @param
    */
-  private static getPointerId(e : TouchEvent | PointerEvent | MouseEvent) : number {
+  private static getPointerId(e : PointerEvents) : number {
     const eventType = Draggable.getEventType(e);
     let pointerId : number;
 

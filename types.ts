@@ -14,6 +14,12 @@ interface EventListeners {
 }
 
 /**
+ * Either a MouseEvent, PointerEvent or TouchEvent.
+ * Not to be confused with PointerEvent
+ */
+type PointerEvents = MouseEvent | PointerEvent | TouchEvent;
+
+/**
  * Interface representing this.options / constructor arguments of Draggable
  */
 interface Options {
@@ -221,11 +227,9 @@ interface DragProperties {
 }
 
 /**
- * Interface representing the Draggable Event
- *
- * This is exposed in function callbacks
+ * Shared properties for both DraggableEvent and DraggableEventPriv
  */
-interface DraggableEvent {
+interface SharedEventProperties {
  /**
   * Type of the API being used
   */
@@ -247,13 +251,6 @@ interface DraggableEvent {
   originalElement: HTMLElement
 
   /**
-   * Reference to the original event - changes over time as different events fire
-   *
-   * TODO: Set it in each event listener
-   */
-  originalEvent: Event;
-
-  /**
    * Current cursor position
    */
   pointerX: number
@@ -273,22 +270,45 @@ interface DraggableEvent {
   */
   ctrlKey: boolean
 
+}
+
+/**
+ * Private event properties
+ */
+interface EventProperties extends SharedEventProperties {
   /**
    * Drag properties, initialized at dragInit()
    */
   drag: DragProperties | null
-
 }
 
 /**
- * Interface representing event vars
- * In contrast to DraggableEvent, the additional properties here are private
+ * Public draggable event properties exposed to callbacks
  */
-interface DraggableEventVars extends DraggableEvent {
+interface DraggableEvent extends SharedEventProperties {
+  /**
+   * The name of the event, e.g. pointerdown, click, start, stop
+   */
+  eventName: string
 
-    // Current calculated dragged element position
-    // elementX: number | null;
-    // elementY: number | null;
+  /**
+   * Reference to the original DOM event
+   */
+  originalEvent: Event;
+
+  /**
+   * Dragged element position.
+   * This will be null on non-dragging event
+   */
+  elementX: number | null
+  elementY: number | null
+
+  /**
+   * The element being dragged.
+   * This will be null on a non-drag event
+   */
+  draggedElement: HTMLElement | null;
+
 }
 
 export type {
@@ -296,5 +316,7 @@ export type {
   DragProperties,
   Options,
   DraggableEvent,
+  EventProperties,
   EventListeners,
+  PointerEvents,
 };
