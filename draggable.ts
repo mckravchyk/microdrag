@@ -211,7 +211,6 @@ class Draggable {
       pointerId: Draggable.getPointerId(e),
       ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
       originalElement: eventThis,
-      originalEvent: e,
       pointerX0,
       pointerY0,
       pointerX: pointerX0,
@@ -583,8 +582,6 @@ class Draggable {
     if (!this.checkPointerId(e)) {
       return;
     }
-
-    this.ev.originalEvent = e;
 
     this.ev.ctrlKey = (this.ev.inputDevice === 'mouse' && e.ctrlKey);
 
