@@ -30,7 +30,7 @@ class Draggable {
    * Event properties
    * This is reset every time the event starts
    */
-  private dragEvent: (EventProperties|null) = null;
+  private ev: (EventProperties|null) = null;
 
   private options : Options;
 
@@ -165,7 +165,7 @@ class Draggable {
      * Prevents double firing of the event in "touchstart mousedown" setup
      * Prevents any other edge cases such as multiple-pointers
      */
-    if (this.dragEvent !== null) {
+    if (this.ev !== null) {
       console.log('event already active!');
       return;
     }
@@ -205,7 +205,7 @@ class Draggable {
     }
 
     // Initialize event args. See DraggableEvent interface for definitions
-    this.dragEvent = {
+    this.ev = {
       eventType,
       inputDevice,
       pointerId: Draggable.getPointerId(e),
@@ -225,20 +225,20 @@ class Draggable {
     }
 
     // Attach move and pointerup events
-    // $(document).on(`${this.dragEvent.eventType}move.draggable`, move);
+    // $(document).on(`${this.ev.eventType}move.draggable`, move);
     // $(document).on(`${endEvent}.draggable`, end);
 
     // Register move listener - the event type is deduced based on the start event type
     this.listeners.move = new SimpleEventListener({
       target: document,
-      eventName: `${this.dragEvent.eventType}move`,
+      eventName: `${this.ev.eventType}move`,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
         this.move(eInner);
       },
     });
 
     // Register end/up listener - the event type is deduced based on the start event type
-    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.dragEvent.eventType === 'touch') ? `${this.dragEvent.eventType}end` : `${this.dragEvent.eventType}up`);
+    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'touch') ? `${this.ev.eventType}end` : `${this.ev.eventType}up`);
     this.listeners.end = new SimpleEventListener({
       target: document,
       eventName: endEvent,
@@ -249,7 +249,7 @@ class Draggable {
   }
 
   private dragInit(e: PointerEvents) {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
@@ -276,11 +276,11 @@ class Draggable {
      *
      */
       // TODO: Add validation to check if attachTo exists
-      draggedElement = this.dragEvent.originalElement.cloneNode(true) as HTMLElement;
+      draggedElement = this.ev.originalElement.cloneNode(true) as HTMLElement;
       draggedElement.setAttribute('id', '');
       this.options.clone.attachTo.appendChild(draggedElement);
     } else {
-      draggedElement = this.dragEvent.originalElement;
+      draggedElement = this.ev.originalElement;
     }
 
     // @domRead
@@ -366,14 +366,14 @@ class Draggable {
     elementX = parseInt(style.left, 10);
     elementY = parseInt(style.top, 10);
 
-    deltaX = this.dragEvent.pointerX0 - elementX;
-    deltaY = this.dragEvent.pointerY0 - elementY;
+    deltaX = this.ev.pointerX0 - elementX;
+    deltaY = this.ev.pointerY0 - elementY;
 
     elementX0 = elementX;
     elementY0 = elementY;
 
     // Populate drag properties
-    this.dragEvent.drag = {
+    this.ev.drag = {
       draggedElement,
       deltaX,
       deltaY,
@@ -416,7 +416,7 @@ class Draggable {
    * @param e
    */
   private move(e : PointerEvents) {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
     if (!this.checkPointerId(e)) {
@@ -424,12 +424,12 @@ class Draggable {
     }
 
     // Update position
-    if (this.dragEvent.eventType === 'touch') {
-      this.dragEvent.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
-      this.dragEvent.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
+    if (this.ev.eventType === 'touch') {
+      this.ev.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
+      this.ev.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
     } else {
-      this.dragEvent.pointerX = (<PointerEvent|MouseEvent>e).clientX;
-      this.dragEvent.pointerY = (<PointerEvent|MouseEvent>e).clientY;
+      this.ev.pointerX = (<PointerEvent|MouseEvent>e).clientX;
+      this.ev.pointerY = (<PointerEvent|MouseEvent>e).clientY;
     }
 
     /**
@@ -438,10 +438,10 @@ class Draggable {
      */
 
     // Don't initiate if delta distance is too small
-    if (this.dragEvent.drag === null
+    if (this.ev.drag === null
       && Math.sqrt(
-        (this.dragEvent.pointerX0 - this.dragEvent.pointerX) * (this.dragEvent.pointerX0 - this.dragEvent.pointerX)
-        + (this.dragEvent.pointerY0 - this.dragEvent.pointerY) * (this.dragEvent.pointerY0 - this.dragEvent.pointerY),
+        (this.ev.pointerX0 - this.ev.pointerX) * (this.ev.pointerX0 - this.ev.pointerX)
+        + (this.ev.pointerY0 - this.ev.pointerY) * (this.ev.pointerY0 - this.ev.pointerY),
       ) > 2
     ) {
       // Initialize the drag
@@ -449,11 +449,11 @@ class Draggable {
       this.dragInit(e);
     }
 
-    // console.log(`move(${this.dragEvent.pointerX}, ${this.dragEvent.pointerY})`);
+    // console.log(`move(${this.ev.pointerX}, ${this.ev.pointerY})`);
 
     // Schedule animation frame to process move
-    if (this.dragEvent.drag !== null && this.dragEvent.drag.rafFrameId === null) {
-      this.dragEvent.drag.rafFrameId = requestAnimationFrame(() => {
+    if (this.ev.drag !== null && this.ev.drag.rafFrameId === null) {
+      this.ev.drag.rafFrameId = requestAnimationFrame(() => {
         this.rafProcessMove();
       });
       /**
@@ -469,78 +469,78 @@ class Draggable {
    */
   private rafProcessMove(): void {
     // This must not be allowed as the render loop is expected to be cancelled on stop
-    if (this.dragEvent === null || this.dragEvent.drag === null) {
+    if (this.ev === null || this.ev.drag === null) {
       throw new Error('Unexpected call');
     }
 
     // This indicates that the frame has been processed and another one will have to be scheduled
-    this.dragEvent.drag.rafFrameId = null;
+    this.ev.drag.rafFrameId = null;
 
     // Call the process move functions
     this.processMove();
   }
 
   private processMove() {
-    if (this.dragEvent === null || this.dragEvent.drag === null) {
+    if (this.ev === null || this.ev.drag === null) {
       throw new Error('Unexpected call');
     }
 
     // Exit if the position didn't change
     if (
-      this.dragEvent.drag.lastProcessedX === this.dragEvent.pointerX
-      && this.dragEvent.drag.lastProcessedY === this.dragEvent.pointerY
+      this.ev.drag.lastProcessedX === this.ev.pointerX
+      && this.ev.drag.lastProcessedY === this.ev.pointerY
     ) {
       console.log('Pointer position did not change, skipping...');
       return;
     }
 
-    this.dragEvent.drag.lastProcessedX = this.dragEvent.pointerX;
-    this.dragEvent.drag.lastProcessedY = this.dragEvent.pointerY;
+    this.ev.drag.lastProcessedX = this.ev.pointerX;
+    this.ev.drag.lastProcessedY = this.ev.pointerY;
 
     // console.log('updating position');
 
     // Calculate the dragged element position
-    let newLeft = this.dragEvent.pointerX - this.dragEvent.drag.deltaX;
-    let newTop = this.dragEvent.pointerY - this.dragEvent.drag.deltaY;
+    let newLeft = this.ev.pointerX - this.ev.drag.deltaX;
+    let newTop = this.ev.pointerY - this.ev.drag.deltaY;
 
     // Sanitize the position by containment boundaries
-    if (this.dragEvent.drag.containment !== null) {
+    if (this.ev.drag.containment !== null) {
       // moveProcessContainment();
       // X-axis
-      if (newLeft < this.dragEvent.drag.containment.left) {
-        newLeft = this.dragEvent.drag.containment.left;
-      } else if (newLeft > this.dragEvent.drag.containment.right) {
-        newLeft = this.dragEvent.drag.containment.right;
+      if (newLeft < this.ev.drag.containment.left) {
+        newLeft = this.ev.drag.containment.left;
+      } else if (newLeft > this.ev.drag.containment.right) {
+        newLeft = this.ev.drag.containment.right;
       }
       // Y-axis
-      if (newTop < this.dragEvent.drag.containment.top) {
-        newTop = this.dragEvent.drag.containment.top;
-      } else if (newTop > this.dragEvent.drag.containment.bottom) {
-        newTop = this.dragEvent.drag.containment.bottom;
+      if (newTop < this.ev.drag.containment.top) {
+        newTop = this.ev.drag.containment.top;
+      } else if (newTop > this.ev.drag.containment.bottom) {
+        newTop = this.ev.drag.containment.bottom;
       }
     }
 
     // Sanitize the position for the snap feature
-    if (this.dragEvent.drag.snap !== null) {
+    if (this.ev.drag.snap !== null) {
       // moveProcessSnap();
       // X-axis
       // TODO: No magic numbers for sensitivity - add an option
-      if (Math.abs(newLeft - this.dragEvent.drag.snap.left) < 10) {
-        newLeft = this.dragEvent.drag.snap.left;
-      } else if (Math.abs(newLeft - this.dragEvent.drag.snap.right) < 10) {
-        newLeft = this.dragEvent.drag.snap.right;
+      if (Math.abs(newLeft - this.ev.drag.snap.left) < 10) {
+        newLeft = this.ev.drag.snap.left;
+      } else if (Math.abs(newLeft - this.ev.drag.snap.right) < 10) {
+        newLeft = this.ev.drag.snap.right;
       }
       // Y-axis
-      if (Math.abs(newTop - this.dragEvent.drag.snap.top) < 10) {
-        newTop = this.dragEvent.drag.snap.top;
-      } else if (Math.abs(newTop - this.dragEvent.drag.snap.bottom) < 10) {
-        newTop = this.dragEvent.drag.snap.bottom;
+      if (Math.abs(newTop - this.ev.drag.snap.top) < 10) {
+        newTop = this.ev.drag.snap.top;
+      } else if (Math.abs(newTop - this.ev.drag.snap.bottom) < 10) {
+        newTop = this.ev.drag.snap.bottom;
       }
     }
 
     // Update element position representation
-    this.dragEvent.drag.elementX = newLeft;
-    this.dragEvent.drag.elementY = newTop;
+    this.ev.drag.elementX = newLeft;
+    this.ev.drag.elementY = newTop;
 
     this.renderMove();
   }
@@ -549,24 +549,24 @@ class Draggable {
    * Render the current dragged element position on DOM
    */
   private renderMove() : void {
-    if (this.dragEvent === null || this.dragEvent.drag === null) {
+    if (this.ev === null || this.ev.drag === null) {
       throw new Error('Unexpected call');
     }
 
-    // console.log(`renderMove(${this.dragEvent.pointerX}, ${this.dragEvent.pointerY})`);
+    // console.log(`renderMove(${this.ev.pointerX}, ${this.ev.pointerY})`);
 
     // Update the dragged element position in the DOM
     if (this.enableCompositing) {
-      const transformX = this.dragEvent.drag.elementX - this.dragEvent.drag.elementX0;
-      const transformY = this.dragEvent.drag.elementY - this.dragEvent.drag.elementY0;
-      this.dragEvent.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
+      const transformX = this.ev.drag.elementX - this.ev.drag.elementX0;
+      const transformY = this.ev.drag.elementY - this.ev.drag.elementY0;
+      this.ev.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
     } else {
-      this.dragEvent.drag.draggedElement.style.left = `${this.dragEvent.drag.elementX}px`; // @domWrite
-      this.dragEvent.drag.draggedElement.style.top = `${this.dragEvent.drag.elementY}px`; // @domWrite
+      this.ev.drag.draggedElement.style.left = `${this.ev.drag.elementX}px`; // @domWrite
+      this.ev.drag.draggedElement.style.top = `${this.ev.drag.elementY}px`; // @domWrite
     }
 
     // Process grid changes if using grid, this will also update the swapped element position
-    if (this.dragEvent.drag.grid !== null) {
+    if (this.ev.drag.grid !== null) {
       this.processGridUpdate();
     }
   }
@@ -575,7 +575,7 @@ class Draggable {
    * Stops the drag event
    */
   private end(e : PointerEvents) {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
@@ -584,16 +584,16 @@ class Draggable {
       return;
     }
 
-    this.dragEvent.originalEvent = e;
+    this.ev.originalEvent = e;
 
-    this.dragEvent.ctrlKey = (this.dragEvent.inputDevice === 'mouse' && e.ctrlKey);
+    this.ev.ctrlKey = (this.ev.inputDevice === 'mouse' && e.ctrlKey);
 
     // If dragging was initialized
-    if (this.dragEvent.drag !== null) {
+    if (this.ev.drag !== null) {
       // Stop requestAnimationFrame if scheduled
-      if (this.dragEvent.drag.rafFrameId !== null) {
-        window.cancelAnimationFrame(this.dragEvent.drag.rafFrameId);
-        this.dragEvent.drag.rafFrameId = null;
+      if (this.ev.drag.rafFrameId !== null) {
+        window.cancelAnimationFrame(this.ev.drag.rafFrameId);
+        this.ev.drag.rafFrameId = null;
       }
 
       // Manually call processMove() to render the last frame
@@ -601,46 +601,46 @@ class Draggable {
 
       // Execute onStop callback if supplied
       if (typeof this.options.onStop === 'function') {
-        this.options.onStop.call(this.dragEvent.drag.draggedElement, this.getPublicEventProps('stop', e));
+        this.options.onStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', e));
       }
 
       // Reset the cursor style
       document.body.style.cursor = ''; // @domWrite
 
       // Remove the draggable-dragging class from the element
-      // $(this.dragEvent.draggedElement).removeClass('draggable-dragging');
-      this.dragEvent.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
+      // $(this.ev.draggedElement).removeClass('draggable-dragging');
+      this.ev.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
 
       // If using composite layer - clean up the transform, pply the position as left/top position
       if (this.enableCompositing) {
         // FIXME: What if the element has existing transformation applied?
-        this.dragEvent.drag.draggedElement.style.left = `${this.dragEvent.drag.elementX}px`;
-        this.dragEvent.drag.draggedElement.style.top = `${this.dragEvent.drag.elementY}px`;
-        this.dragEvent.drag.draggedElement.style.transform = '';
+        this.ev.drag.draggedElement.style.left = `${this.ev.drag.elementX}px`;
+        this.ev.drag.draggedElement.style.top = `${this.ev.drag.elementY}px`;
+        this.ev.drag.draggedElement.style.transform = '';
       }
 
       // Remove the clone helper if it was enabled
       if (this.options.clone) {
-        // $(this.dragEvent.draggedElement).remove();
-        // this.dragEvent.draggedElement.remove();
-        this.options.clone.attachTo.removeChild(this.dragEvent.drag.draggedElement); // @domWrite
+        // $(this.ev.draggedElement).remove();
+        // this.ev.draggedElement.remove();
+        this.options.clone.attachTo.removeChild(this.ev.drag.draggedElement); // @domWrite
       // FIXME: It seems like relocating the dragged element is not part of the implementation?
       }
 
       // If grid - update set the final position of the element
-      if (this.dragEvent.drag.grid !== null) {
+      if (this.ev.drag.grid !== null) {
         // @domWrite
-        this.dragEvent.originalElement.style.left = `${(this.dragEvent.drag.grid.gridX * this.dragEvent.drag.grid.cellWidth)}px`;
-        this.dragEvent.originalElement.style.top = `${(this.dragEvent.drag.grid.gridY * this.dragEvent.drag.grid.cellHeight)}px`;
+        this.ev.originalElement.style.left = `${(this.ev.drag.grid.gridX * this.ev.drag.grid.cellWidth)}px`;
+        this.ev.originalElement.style.top = `${(this.ev.drag.grid.gridY * this.ev.drag.grid.cellHeight)}px`;
       }
 
       // // Null the drag properties object
-      // this.dragEvent.drag = null;
+      // this.ev.drag = null;
 
       // Else if dragging not in progress
     } else if (typeof this.options.onClick === 'function') {
       // Execute click callback if defined
-      this.options.onClick.call(this.dragEvent.originalElement, this.getPublicEventProps('click', e));
+      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('click', e));
     }
 
     // Call the stop method
@@ -648,7 +648,7 @@ class Draggable {
   }
 
   private stop() {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
@@ -664,8 +664,8 @@ class Draggable {
       this.listeners.end = null;
     }
 
-    this.dragEvent.drag = null;
-    this.dragEvent = null;
+    this.ev.drag = null;
+    this.ev = null;
   }
 
   /**
@@ -674,25 +674,25 @@ class Draggable {
    * @param originalEvent The original DOM event
    */
   private getPublicEventProps(eventName: string, originalEvent: PointerEvents) : DraggableEvent {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
     return {
-      eventType: this.dragEvent.eventType,
-      inputDevice: this.dragEvent.inputDevice,
-      pointerId: this.dragEvent.pointerId,
-      originalElement: this.dragEvent.originalElement,
-      pointerX: this.dragEvent.pointerX,
-      pointerY: this.dragEvent.pointerY,
-      pointerX0: this.dragEvent.pointerX0,
-      pointerY0: this.dragEvent.pointerY0,
-      ctrlKey: this.dragEvent.ctrlKey,
+      eventType: this.ev.eventType,
+      inputDevice: this.ev.inputDevice,
+      pointerId: this.ev.pointerId,
+      originalElement: this.ev.originalElement,
+      pointerX: this.ev.pointerX,
+      pointerY: this.ev.pointerY,
+      pointerX0: this.ev.pointerX0,
+      pointerY0: this.ev.pointerY0,
+      ctrlKey: this.ev.ctrlKey,
       eventName,
       originalEvent,
-      elementX: (this.dragEvent.drag !== null) ? this.dragEvent.drag.elementX : null,
-      elementY: (this.dragEvent.drag !== null) ? this.dragEvent.drag.elementY : null,
-      draggedElement: (this.dragEvent.drag !== null) ? this.dragEvent.drag.draggedElement : null,
+      elementX: (this.ev.drag !== null) ? this.ev.drag.elementX : null,
+      elementY: (this.ev.drag !== null) ? this.ev.drag.elementY : null,
+      draggedElement: (this.ev.drag !== null) ? this.ev.drag.draggedElement : null,
     };
   }
 
@@ -719,10 +719,10 @@ class Draggable {
    * @param e DOM Event to check
    */
   private checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
-    if (this.dragEvent === null) {
+    if (this.ev === null) {
       throw new Error('Unexpected call');
     }
-    return (Draggable.getPointerId(e) === this.dragEvent.pointerId);
+    return (Draggable.getPointerId(e) === this.ev.pointerId);
   }
 
   /**
@@ -730,47 +730,47 @@ class Draggable {
    */
   private calculateGridHelperPosition() {
     if (
-      this.dragEvent === null
-      || this.dragEvent.drag === null
-      || this.dragEvent.drag.grid === null
+      this.ev === null
+      || this.ev.drag === null
+      || this.ev.drag.grid === null
     ) {
       throw new Error('Unexpected call');
     }
 
-    if (this.dragEvent.drag.elementX !== this.dragEvent.pointerX - this.dragEvent.drag.deltaX) {
+    if (this.ev.drag.elementX !== this.ev.pointerX - this.ev.drag.deltaX) {
       // console.log('Warning: X difference');
     }
 
-    if (this.dragEvent.drag.elementY !== this.dragEvent.pointerY - this.dragEvent.drag.deltaY) {
+    if (this.ev.drag.elementY !== this.ev.pointerY - this.ev.drag.deltaY) {
       // console.log('Warning: Y difference');
     }
 
-    let x = this.dragEvent.drag.elementX;
-    // var x = this.dragEvent.pointerX - deltaX;
+    let x = this.ev.drag.elementX;
+    // var x = this.ev.pointerX - deltaX;
 
-    x = Math.round(x / this.dragEvent.drag.grid.cellWidth);
+    x = Math.round(x / this.ev.drag.grid.cellWidth);
 
-    let y = this.dragEvent.drag.elementY;
-    // var y = this.dragEvent.pointerY - deltaY;
+    let y = this.ev.drag.elementY;
+    // var y = this.ev.pointerY - deltaY;
 
-    y = Math.round(y / this.dragEvent.drag.grid.cellHeight);
+    y = Math.round(y / this.ev.drag.grid.cellHeight);
 
-    this.dragEvent.drag.grid.gridX = x;
-    this.dragEvent.drag.grid.gridY = y;
+    this.ev.drag.grid.gridX = x;
+    this.ev.drag.grid.gridY = y;
   }
 
   /**
    * Set up grid helper this.options - used by dragInit()
    */
   private dragInitGrid() {
-    if (this.dragEvent === null || this.dragEvent.drag === null || typeof this.options.grid === 'undefined') {
+    if (this.ev === null || this.ev.drag === null || typeof this.options.grid === 'undefined') {
       throw new Error('Unexpected call');
     }
 
     // Set the object with grid properties
-    this.dragEvent.drag.grid = {
+    this.ev.drag.grid = {
       // FIXME: Assign grid ids
-      gridId: parseInt(this.dragEvent.originalElement.dataset.gridId, 10), // @domRead
+      gridId: parseInt(this.ev.originalElement.dataset.gridId, 10), // @domRead
       container: this.options.grid.container,
       cellWidth: this.options.grid.cellWidth,
       cellHeight: this.options.grid.cellHeight,
@@ -784,8 +784,8 @@ class Draggable {
     this.calculateGridHelperPosition();
 
     // Populate the last position variables
-    this.dragEvent.drag.grid.lastGridX = this.dragEvent.drag.grid.gridX;
-    this.dragEvent.drag.grid.lastGridY = this.dragEvent.drag.grid.gridY;
+    this.ev.drag.grid.lastGridX = this.ev.drag.grid.gridX;
+    this.ev.drag.grid.lastGridY = this.ev.drag.grid.gridY;
 
     // gridSwapped = null;
   }
@@ -795,8 +795,8 @@ class Draggable {
    * Used by renderMove()
    */
   private processGridUpdate() : void {
-    if (this.dragEvent === null || this.dragEvent.drag === null
-      || this.dragEvent.drag.grid === null || this.gridMap === null) {
+    if (this.ev === null || this.ev.drag === null
+      || this.ev.drag.grid === null || this.gridMap === null) {
       throw new Error('Unexpected call');
     }
 
@@ -819,8 +819,8 @@ class Draggable {
 
     // If the position of the helper changes in the grid
     if (
-      this.dragEvent.drag.grid.gridX !== this.dragEvent.drag.grid.lastGridX
-      || this.dragEvent.drag.grid.gridY !== this.dragEvent.drag.grid.lastGridY
+      this.ev.drag.grid.gridX !== this.ev.drag.grid.lastGridX
+      || this.ev.drag.grid.gridY !== this.ev.drag.grid.lastGridY
     ) {
       /**
        * Swap grid elements
@@ -834,39 +834,39 @@ class Draggable {
       let swappedElementID : number | null = null;
 
       if (
-        typeof this.gridMap[this.dragEvent.drag.grid.gridY] !== 'undefined'
-        && typeof this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX] !== 'undefined'
+        typeof this.gridMap[this.ev.drag.grid.gridY] !== 'undefined'
+        && typeof this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX] !== 'undefined'
       ) {
-        swappedElementID = this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX];
+        swappedElementID = this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX];
       }
 
       // If element exists - swap it with the old position
       if (swappedElementID !== null) {
-        const swapped = <HTMLElement> this.dragEvent.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
+        const swapped = <HTMLElement> this.ev.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
 
         // Put the swapped element on the previous slot in the grid
-        this.gridMap[this.dragEvent.drag.grid.lastGridY][this.dragEvent.drag.grid.lastGridX] = swappedElementID;
+        this.gridMap[this.ev.drag.grid.lastGridY][this.ev.drag.grid.lastGridX] = swappedElementID;
 
         // Update swapped element position in the dom
-        swapped.style.left = `${(this.dragEvent.drag.grid.lastGridX * this.dragEvent.drag.grid.cellWidth)}px`; // @domWrite
-        swapped.style.top = `${(this.dragEvent.drag.grid.lastGridY * this.dragEvent.drag.grid.cellHeight)}px`; // @domWrite
+        swapped.style.left = `${(this.ev.drag.grid.lastGridX * this.ev.drag.grid.cellWidth)}px`; // @domWrite
+        swapped.style.top = `${(this.ev.drag.grid.lastGridY * this.ev.drag.grid.cellHeight)}px`; // @domWrite
       } else {
         // Indicate that the previous position on the grid is empty (no element was swapped)
-        this.gridMap[this.dragEvent.drag.grid.lastGridY][this.dragEvent.drag.grid.lastGridX] = null;
+        this.gridMap[this.ev.drag.grid.lastGridY][this.ev.drag.grid.lastGridX] = null;
       }
 
       // Put the dragged element in the current slot on the grid
-      this.gridMap[this.dragEvent.drag.grid.gridY][this.dragEvent.drag.grid.gridX] = this.dragEvent.drag.grid.gridId;
+      this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX] = this.ev.drag.grid.gridId;
 
       // Note: The dragged element position has already been updated before this if block
 
-      console.log(`Grid X: ${this.dragEvent.drag.grid.gridX} Grid Y: ${this.dragEvent.drag.grid.gridY}`);
-      console.log(`Grid helper id: ${this.dragEvent.drag.grid.gridId}`);
+      console.log(`Grid X: ${this.ev.drag.grid.gridX} Grid Y: ${this.ev.drag.grid.gridY}`);
+      console.log(`Grid helper id: ${this.ev.drag.grid.gridId}`);
       console.log(`Swapped element ID: ${swappedElementID}`);
 
       // Cache the previous position to be used in calculations
-      this.dragEvent.drag.grid.lastGridX = this.dragEvent.drag.grid.gridX;
-      this.dragEvent.drag.grid.lastGridY = this.dragEvent.drag.grid.gridY;
+      this.ev.drag.grid.lastGridX = this.ev.drag.grid.gridX;
+      this.ev.drag.grid.lastGridY = this.ev.drag.grid.gridY;
 
       // if (this.options.debugLogger) {
       //   logger('gridSwap', 'grid element swapped', {
