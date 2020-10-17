@@ -7,6 +7,8 @@ import {
 
 import { SimpleEventListener } from '../util/SimpleEventListener';
 
+import { deepClone } from './util/deep_clone';
+
 import type {
   GridMap,
   EventListeners,
@@ -49,16 +51,6 @@ class Draggable {
     end: null,
   };
 
-  /**
-   * Whether the dragged element should be promoted to its own composite layer
-   *
-   * It's recommended for performance reasons as this will skip expensive operations such
-   * as layout and paint
-   * However there might be side effects, such as blurred out fonts.
-   *
-   */
-  private enableCompositing = true;
-
   // const moveRate = new MeasureFrequency({
   //   requiredDataPoints: 1000,
   //   onCalculated: function(data) {
@@ -71,16 +63,18 @@ class Draggable {
   /**
    *
    * @param options Options
+   *
+   * TODO: Validate options with ts-interface-builder/ts-interface-checker
    */
   constructor(options : Options) {
-    // The start event to use, if Pointer API is not available, use touchstart + mousedown
-    let startEventName;
+    // Whether PointerEvent API should be used
+    const usePointerEvents = (
+      typeof window.PointerEvent !== 'undefined'
+      && options.noPointerEvent !== true
+    );
 
-    if (typeof options.startEventOverride === 'undefined') {
-      startEventName = (typeof window.PointerEvent !== 'undefined') ? 'pointerdown' : 'touchstart mousedown';
-    } else {
-      startEventName = options.startEventOverride;
-    }
+    // The start event to use, if Pointer API is not available, use touchstart + mousedown
+    const startEventName = (usePointerEvents) ? 'pointerdown' : 'touchstart mousedown';
 
     // Attach cancelStart event if cancelStart is defined
     if (options.cancel) {
@@ -91,7 +85,7 @@ class Draggable {
         delegate: {
           selector: options.cancel,
         },
-        callback: (e : PointerEvents) => {
+        callback: (e: PointerEvents) => {
           this.cancelStart(e);
         },
       });
@@ -109,10 +103,9 @@ class Draggable {
     });
 
     if (typeof options.grid !== 'undefined') {
-      this.gridMap = options.grid.map;
+      this.gridMap = deepClone(options.grid.map);
     }
-
-    this.options = options;
+    this.options = deepClone(options);
   }
 
   public destroy() {
@@ -123,7 +116,9 @@ class Draggable {
         this.listeners[listener] = null;
       }
     }
-  };
+    // Note that the event object is also nulled whenever the interaction stops
+    this.ev = null;
+  }
 
   /**
    * Pointerdown callback when clicked on a cancel element
@@ -555,7 +550,7 @@ class Draggable {
     // console.log(`renderMove(${this.ev.pointerX}, ${this.ev.pointerY})`);
 
     // Update the dragged element position in the DOM
-    if (this.enableCompositing) {
+    if (this.options.enableCompositing) {
       const transformX = this.ev.drag.elementX - this.ev.drag.elementX0;
       const transformY = this.ev.drag.elementY - this.ev.drag.elementY0;
       this.ev.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
@@ -609,7 +604,7 @@ class Draggable {
       this.ev.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
 
       // If using composite layer - clean up the transform, pply the position as left/top position
-      if (this.enableCompositing) {
+      if (this.options.enableCompositing) {
         // FIXME: What if the element has existing transformation applied?
         this.ev.drag.draggedElement.style.left = `${this.ev.drag.elementX}px`;
         this.ev.drag.draggedElement.style.top = `${this.ev.drag.elementY}px`;
@@ -895,10 +890,24 @@ class Draggable {
     return e.constructor.name.replace('Event', '').toLocaleLowerCase();
   }
 
-  //TODO: Re-implement it without jQuery
-  public setOptions(_options) {
-    // $.extend(true, this.options, _this.options);
-  };
-};
+  public getOption<T extends(keyof Options & string)>(option: T): Options[T] {
+    return deepClone(this.options[option]);
+  }
+
+  /**
+   * Set a new value for a given option
+   * @param option The name of the option
+   * @param value Value of the option
+   *
+   * TODO: Validate options?
+   */
+  public setOption<T extends(keyof Options & string)>(option : T, value : Options[T]) {
+    this.options[option] = deepClone(value);
+
+    if (option === 'grid') {
+      this.gridMap = deepClone((value as Options['grid'])!.map);
+    }
+  }
+}
 
 export default Draggable;

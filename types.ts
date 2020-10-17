@@ -1,8 +1,10 @@
+import type { SimpleEventListener } from '../util/SimpleEventListener';
+
 /**
  * Interface representing grid map for this.options.grid
  * E.g. grid.map[y][x] = elementId
  */
- interface GridMap {
+interface GridMap {
   [index: number]: { // y-axis column
     [index: number] : // x-axis column
       number | null // numeric element id in the grid (data-id)
@@ -76,6 +78,17 @@ interface Options {
      */
     container?: HTMLElement | undefined
   } | undefined
+
+  /**
+   * Whether the dragged element should be promoted to its own composite layer
+   *
+   * It's recommended for performance reasons as this will skip expensive operations such
+   * as layout and paint
+   * However there might be side effects, such as blurred out fonts.
+   *
+   */
+  enableCompositing?: boolean
+
   /**
    * Snap. Make the dragged element snap to edges
    *
@@ -122,6 +135,16 @@ interface Options {
   onClick?: Function
   onStart?: Function
   onStop?: Function
+
+  /**
+   * Force not using PointerEvent even if the browser supports it (for debugging)
+   *
+   * The default start event is "pointerdown" if the browser supports it, with a fallback to
+   * "touchstart mousedown" if it does not. Setting this option to true will force the browser
+   * to always use "touchstart mousedown" event combination
+   *
+   */
+  noPointerEvent?: boolean
 
   /**
    * Add a callback to listen for log messages
