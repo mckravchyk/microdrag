@@ -5,7 +5,7 @@ import {
   getWindowHeight,
 } from './util/dom';
 
-import { SimpleEventListener } from '../util/SimpleEventListener';
+import { SimpleEventListener } from '../../util/SimpleEventListener';
 
 import { deepClone } from './util/deep_clone';
 
@@ -670,7 +670,7 @@ class Draggable {
       throw new Error('Unexpected call');
     }
 
-    return {
+    return deepClone({
       eventType: this.ev.eventType,
       inputDevice: this.ev.inputDevice,
       pointerId: this.ev.pointerId,
@@ -685,7 +685,7 @@ class Draggable {
       elementX: (this.ev.drag !== null) ? this.ev.drag.elementX : null,
       elementY: (this.ev.drag !== null) ? this.ev.drag.elementY : null,
       draggedElement: (this.ev.drag !== null) ? this.ev.drag.draggedElement : null,
-    };
+    });
   }
 
   /**
