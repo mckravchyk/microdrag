@@ -16,8 +16,15 @@ import type {
   DraggableEvent,
   EventProperties,
   DragProperties,
-  PointerEvents,
-} from './types'
+} from './types';
+
+import {
+  getCursorEventType,
+  getCursorId,
+  getCursorType,
+} from './util/cursor_events';
+
+import type { CursorEvent } from './util/cursor_events';
 
 /**
   * Simple, fast draggable library
@@ -85,7 +92,7 @@ class Draggable {
         delegate: {
           selector: options.cancel,
         },
-        callback: (e: PointerEvents) => {
+        callback: (e: CursorEvent) => {
           this.cancelStart(e);
         },
       });
@@ -97,7 +104,7 @@ class Draggable {
     this.listeners.start = new SimpleEventListener({
       target: options.element,
       eventName: startEventName,
-      callback(e : PointerEvents) {
+      callback(e : CursorEvent) {
         self.start(e, this as unknown as HTMLElement);
       },
     });
@@ -125,7 +132,7 @@ class Draggable {
    * @param e
    *
    */
-  private cancelStart(e : PointerEvents) {
+  private cancelStart(e : CursorEvent) {
     // Prevent the start() event from bubbling up
     this.cancelled = true;
 
@@ -137,13 +144,13 @@ class Draggable {
      * We are not doing that, as it could interfere with broadly scoped event handlers of the app
      */
 
-    if (Draggable.getEventType(e) === 'touch') {
+    if (getCursorEventType(e) === 'Touch') {
       // Prevent the subsequent mousedown event from firing
       e.preventDefault();
     }
   }
 
-  private start(e : PointerEvents, eventThis: HTMLElement) {
+  private start(e : CursorEvent, eventThis: HTMLElement) {
     // Exit if previously clicked on an excluded element (this.options.cancel)
     if (this.cancelled) {
       // Reset it for the next pointerdown
@@ -151,7 +158,7 @@ class Draggable {
       return;
     }
 
-    // Prevent default actions and bubbling up
+    // Prevent default actions
     e.preventDefault();
 
     /**
@@ -171,10 +178,10 @@ class Draggable {
     }
 
     // Get the event type: mouse, touch or pointer
-    const eventType = <'mouse'|'touch'|'pointer'> Draggable.getEventType(e);
+    const eventType = getCursorEventType(e);
 
     // Get the input device: mouse or touch
-    const inputDevice = ((eventType === 'pointer' && (e as PointerEvent).pointerType === 'mouse') || eventType === 'mouse') ? 'mouse' : 'touch';
+    const inputDevice = getCursorType(e);
 
     // Exit if not Left Mouse Button
     if (inputDevice === 'mouse' && (e as MouseEvent | PointerEvent).button !== 0) {
@@ -183,7 +190,7 @@ class Draggable {
 
     // Exit if not single touch.
     // FIXME: This only considers the Touch API. Implementation is missing for Pointer API
-    if (eventType === 'touch' && (e as TouchEvent).touches.length !== 1) {
+    if (eventType === 'Touch' && (e as TouchEvent).touches.length !== 1) {
       return;
     }
 
@@ -191,7 +198,7 @@ class Draggable {
     let pointerX0 : number;
     let pointerY0 : number;
 
-    if (eventType === 'touch') {
+    if (eventType === 'Touch') {
       pointerX0 = (e as TouchEvent).touches[0].clientX;
       pointerY0 = (e as TouchEvent).touches[0].clientY;
     } else {
@@ -203,7 +210,7 @@ class Draggable {
     this.ev = {
       eventType,
       inputDevice,
-      pointerId: Draggable.getPointerId(e),
+      pointerId: getCursorId(e),
       ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
       originalElement: eventThis,
       pointerX0,
@@ -218,21 +225,19 @@ class Draggable {
       this.options.onPointerDown.call(eventThis, this.getPublicEventProps('pointerdown', e));
     }
 
-    // Attach move and pointerup events
-    // $(document).on(`${this.ev.eventType}move.draggable`, move);
-    // $(document).on(`${endEvent}.draggable`, end);
+    const eventNamePrefix = this.ev.eventType.toLocaleLowerCase();
 
     // Register move listener - the event type is deduced based on the start event type
     this.listeners.move = new SimpleEventListener({
       target: document,
-      eventName: `${this.ev.eventType}move`,
+      eventName: `${eventNamePrefix}move`,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
         this.move(eInner);
       },
     });
 
     // Register end/up listener - the event type is deduced based on the start event type
-    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'touch') ? `${this.ev.eventType}end` : `${this.ev.eventType}up`);
+    const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'Touch') ? `${eventNamePrefix}end` : `${eventNamePrefix}up`);
     this.listeners.end = new SimpleEventListener({
       target: document,
       eventName: endEvent,
@@ -242,7 +247,7 @@ class Draggable {
     });
   }
 
-  private dragInit(e: PointerEvents) {
+  private dragInit(e: CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
@@ -409,16 +414,35 @@ class Draggable {
    * Fires each time the pointer moves
    * @param e
    */
-  private move(e : PointerEvents) {
+  private move(e : CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
+
+    /**
+     * Nice to have: A cursor event helper class
+     *
+     * const ceh = new CursorEventHelper(e);
+     * // Ignore move events on a different pointer
+     * if (ceh.getPointerId() !== this.ev.pointerId) {
+     *  return;
+     *  }
+     *
+     * this.ev.pointerX = ceh.getClientX();
+     * this.ev.pointerY = ceh.getClientY();
+     *
+     * Even better would be a full abstraction of a CursorEvent
+     * with cursordown, cursormove, cursorup, but there is no time for this
+     */
+
+    // Ignore move events on a different pointer
     if (!this.checkPointerId(e)) {
+      console.log('checkPointerId: false');
       return;
     }
 
     // Update position
-    if (this.ev.eventType === 'touch') {
+    if (this.ev.eventType === 'Touch') {
       this.ev.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
       this.ev.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
     } else {
@@ -568,13 +592,14 @@ class Draggable {
   /**
    * Stops the drag event
    */
-  private end(e : PointerEvents) {
+  private end(e : CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
     // Exit if the pointer id does not match
     if (!this.checkPointerId(e)) {
+      console.log('checkPointerId: false');
       return;
     }
 
@@ -665,7 +690,7 @@ class Draggable {
    * @param eventName The name of the event
    * @param originalEvent The original DOM event
    */
-  private getPublicEventProps(eventName: string, originalEvent: PointerEvents) : DraggableEvent {
+  private getPublicEventProps(eventName: string, originalEvent: CursorEvent) : DraggableEvent {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
@@ -689,32 +714,14 @@ class Draggable {
   }
 
   /**
-   * Retrieve the pointer id from event object
-   * @param
-   */
-  private static getPointerId(e : PointerEvents) : number {
-    const eventType = Draggable.getEventType(e);
-    let pointerId : number;
-
-    if (eventType === 'touch') {
-      pointerId = (<TouchEvent>e).changedTouches[0].identifier;
-    } else if (eventType === 'pointer') {
-      pointerId = (<PointerEvent>e).pointerId;
-    } else {
-      pointerId = 1;
-    }
-    return pointerId;
-  }
-
-  /**
    * Check if the DOM Event pointer id matches the pointer which initiated drag
    * @param e DOM Event to check
    */
-  private checkPointerId(e: TouchEvent | PointerEvent | MouseEvent) {
+  private checkPointerId(e: CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
-    return (Draggable.getPointerId(e) === this.ev.pointerId);
+    return (getCursorId(e) === this.ev.pointerId);
   }
 
   /**
@@ -738,13 +745,9 @@ class Draggable {
     }
 
     let x = this.ev.drag.elementX;
-    // var x = this.ev.pointerX - deltaX;
-
     x = Math.round(x / this.ev.drag.grid.cellWidth);
 
     let y = this.ev.drag.elementY;
-    // var y = this.ev.pointerY - deltaY;
-
     y = Math.round(y / this.ev.drag.grid.cellHeight);
 
     this.ev.drag.grid.gridX = x;
@@ -869,25 +872,6 @@ class Draggable {
       //   });
       // }
     }
-  }
-
-  /**
-   * Get the event type
-   * @param e Event instance
-   */
-  private static getEventType(e: Event) : string {
-    // Note: Checking instanceof is much faster than processing contructor name
-    if (e instanceof PointerEvent) {
-      return 'pointer';
-    }
-    if (e instanceof MouseEvent) {
-      return 'mouse';
-    }
-    if (e instanceof TouchEvent) {
-      return 'touch';
-    }
-    // We are not expecting any other event types - default to getting the name from constructor
-    return e.constructor.name.replace('Event', '').toLocaleLowerCase();
   }
 
   public getOption<T extends(keyof Options & string)>(option: T): Options[T] {

@@ -1,4 +1,4 @@
-import type { SimpleEventListener } from '../util/SimpleEventListener';
+import type { SimpleEventListener } from '../../util/SimpleEventListener';
 
 /**
  * Interface representing grid map for this.options.grid
@@ -256,7 +256,7 @@ interface SharedEventProperties {
  /**
   * Type of the API being used
   */
-  eventType: 'mouse' | 'touch' | 'pointer'
+  eventType: 'Mouse' | 'Touch' | 'Pointer'
 
   /**
    * Type of input device
