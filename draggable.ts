@@ -26,6 +26,11 @@ import {
 
 import type { CursorEvent } from './util/cursor_events';
 
+// TODO: Implement raw css imports
+import addCSS from './style';
+
+addCSS();
+
 /**
   * Simple, fast draggable library
   */
@@ -56,6 +61,7 @@ class Draggable {
     cancelStart: null,
     move: null,
     end: null,
+    contextmenu: null,
   };
 
   // const moveRate = new MeasureFrequency({
@@ -98,6 +104,8 @@ class Draggable {
       });
     }
 
+    options.element.classList.add('draggable-element');
+
     const self = this;
 
     // Attach the start event on the draggable element
@@ -123,6 +131,11 @@ class Draggable {
         this.listeners[listener] = null;
       }
     }
+
+    this.options.element.classList.remove('draggable-element');
+
+    // this.options = null;
+
     // Note that the event object is also nulled whenever the interaction stops
     this.ev = null;
   }
@@ -229,8 +242,10 @@ class Draggable {
 
     // Register move listener - the event type is deduced based on the start event type
     this.listeners.move = new SimpleEventListener({
-      target: document,
+      target: window,
       eventName: `${eventNamePrefix}move`,
+      passive: false,
+      capture: true,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
         this.move(eInner);
       },
@@ -399,11 +414,20 @@ class Draggable {
       this.options.onStart.call(draggedElement, this.getPublicEventProps('start', e));
     }
 
-    // Add class to the element being dragged
-    draggedElement.className += ' draggable-dragging'; // @domWrite
+    /**
+     * Prevent default on contextmenu event (for touch interactions)
+     */
+    this.listeners.contextmenu = new SimpleEventListener({
+      target: document,
+      eventName: 'contextmenu',
+      callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
+        eInner.preventDefault();
+      },
+    });
 
-    // Enable drag cursor
-    document.body.style.cursor = 'move'; // @domWrite
+    // Add -is-dragging classes
+    draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
+    document.body.classList.add('draggable-is-dragging'); // @domWrite
 
     if (typeof this.options.grid !== 'undefined') {
       this.dragInitGrid();
@@ -437,9 +461,11 @@ class Draggable {
 
     // Ignore move events on a different pointer
     if (!this.checkPointerId(e)) {
-      console.log('checkPointerId: false');
       return;
     }
+
+    e.preventDefault();
+    e.stopPropagation();
 
     // Update position
     if (this.ev.eventType === 'Touch') {
@@ -621,12 +647,9 @@ class Draggable {
         this.options.onStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', e));
       }
 
-      // Reset the cursor style
-      document.body.style.cursor = ''; // @domWrite
-
-      // Remove the draggable-dragging class from the element
-      // $(this.ev.draggedElement).removeClass('draggable-dragging');
-      this.ev.drag.draggedElement.classList.remove('draggable-dragging'); // @domWrite
+      // Remove -dragging css classes
+      document.body.classList.remove('draggable-is-dragging');
+      this.ev.drag.draggedElement.classList.remove('draggable-element-is-dragging'); // @domWrite
 
       // If using composite layer - clean up the transform, pply the position as left/top position
       if (this.options.enableCompositing) {
@@ -674,6 +697,11 @@ class Draggable {
     if (this.listeners.move !== null) {
       this.listeners.move.off();
       this.listeners.move = null;
+    }
+
+    if (this.listeners.contextmenu !== null) {
+      this.listeners.contextmenu.off();
+      this.listeners.contextmenu = null;
     }
 
     if (this.listeners.end !== null) {
