@@ -22,7 +22,22 @@
   */
  css += '.draggable-element { touch-action: none; }';
  
+ /**
+  * Add cursor move style on the body
+  *
+  * This is applied on the body rather than the dragged element, because
+  * sometimes the cursor can outpace the dragged element (and thus the cursor style
+  * would no longer apply)
+  */
  css += 'body.draggable-is-dragging { cursor: move!important;}';
+ 
+ css += `.draggable-element-is-dragging {
+   -moz-user-select: none;
+   -khtml-user-select: none;
+   -webkit-user-select: none;
+   -ms-user-select: none;
+   user-select: none;
+   `;
  
  function addCSS() {
    const styleEl = document.createElement('style');
