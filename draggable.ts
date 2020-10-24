@@ -89,9 +89,11 @@ class Draggable {
     // The start event to use, if Pointer API is not available, use touchstart + mousedown
     const startEventName = (usePointerEvents) ? 'pointerdown' : 'touchstart mousedown';
 
-    // Attach cancelStart event if cancelStart is defined
+    /**
+     * Attach cancelStart event if cancelStart is defined
+     * This has to be attached before the start event
+     */
     if (options.cancel) {
-      // TODO: Implement a "mousestart" event as extension of SimpleEventListener
       this.listeners.cancelStart = new SimpleEventListener({
         target: options.element,
         eventName: startEventName,
@@ -99,7 +101,7 @@ class Draggable {
           selector: options.cancel,
         },
         callback: (e: CursorEvent) => {
-          this.cancelStart(e);
+          this.onCancelStart(e);
         },
       });
     }
@@ -113,7 +115,7 @@ class Draggable {
       target: options.element,
       eventName: startEventName,
       callback(e : CursorEvent) {
-        self.start(e, this as unknown as HTMLElement);
+        self.onStart(e, this as unknown as HTMLElement);
       },
     });
 
@@ -141,47 +143,48 @@ class Draggable {
   }
 
   /**
-   * Pointerdown callback when clicked on a cancel element
+   * Delegated pointerdown callback when the event target matches options.cancel selector
    * @param e
    *
    */
-  private cancelStart(e : CursorEvent) {
-    // Prevent the start() event from bubbling up
-    this.cancelled = true;
-
+  private onCancelStart(e : CursorEvent) {
     /**
-     * Why not e.stopPropagation() ?
+     * Prevent onStart() event
      *
-     * An alternative to this could be to bind this function directly on a cancel element
-     * and use e.stopPropgation().
-     * We are not doing that, as it could interfere with broadly scoped event handlers of the app
+     * Note: This delegated event is bound to the same target as onStart()
+     * Therefore, onStart() will always fire after it and set this.cancelled = false;
      */
-
-    if (getCursorEventType(e) === 'Touch') {
-      // Prevent the subsequent mousedown event from firing
-      e.preventDefault();
-    }
+    this.cancelled = true;
   }
 
-  private start(e : CursorEvent, eventThis: HTMLElement) {
-    // Exit if previously clicked on an excluded element (this.options.cancel)
+  /**
+   * Handle pointerdown/touchstart/mousedown event
+   * @param e
+   * @param eventThis
+   */
+  private onStart(e : CursorEvent, eventThis: HTMLElement) {
+    // Exit if cancelled
     if (this.cancelled) {
-      // Reset it for the next pointerdown
       this.cancelled = false;
       return;
     }
 
-    // Prevent default actions
-    e.preventDefault();
-
     /**
-     * Exit if the event is already active
+     * Note: On preventing default
      *
-     * Prevents double firing of the event in "touchstart mousedown" setup
-     * Prevents any other edge cases such as multiple-pointers
+     * The only reason for using e.preventDefault() here is if it's a TouchEvent, to prevent
+     * firing of MouseEvent sequence.
+     *
+     * Adding this here however, would also prevent contextmenu event - which might not be desirable
+     * Hence e.preventDefault is added onEnd(), which also successfully stops MouseEvent sequence
      */
+
+    // console.log('onStart()');
+    // console.log(e);
+
+    // Exit if the event happens to be already active (e.g. multiple pointers are used)
     if (this.ev !== null) {
-      console.log('event already active!');
+      console.log('event is already active, exit.');
       return;
     }
 
@@ -247,17 +250,27 @@ class Draggable {
       passive: false,
       capture: true,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
-        this.move(eInner);
+        this.onMove(eInner);
       },
     });
 
     // Register end/up listener - the event type is deduced based on the start event type
     const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'Touch') ? `${eventNamePrefix}end` : `${eventNamePrefix}up`);
     this.listeners.end = new SimpleEventListener({
-      target: document,
+      target: window,
+      capture: true,
       eventName: endEvent,
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
-        this.end(eInner);
+        this.onEnd(eInner);
+      },
+    });
+
+    // Contextmenu event handling (for touch interactions)
+    this.listeners.contextmenu = new SimpleEventListener({
+      target: document,
+      eventName: 'contextmenu',
+      callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
+        this.onContextmenu(eInner);
       },
     });
   }
@@ -414,17 +427,6 @@ class Draggable {
       this.options.onStart.call(draggedElement, this.getPublicEventProps('start', e));
     }
 
-    /**
-     * Prevent default on contextmenu event (for touch interactions)
-     */
-    this.listeners.contextmenu = new SimpleEventListener({
-      target: document,
-      eventName: 'contextmenu',
-      callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {
-        eInner.preventDefault();
-      },
-    });
-
     // Add -is-dragging classes
     draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
     document.body.classList.add('draggable-is-dragging'); // @domWrite
@@ -435,10 +437,10 @@ class Draggable {
   }
 
   /**
-   * Fires each time the pointer moves
+   * Handle pointermove/touchmove/mousemove event
    * @param e
    */
-  private move(e : CursorEvent) {
+  private onMove(e : CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
@@ -464,8 +466,8 @@ class Draggable {
       return;
     }
 
-    e.preventDefault();
-    e.stopPropagation();
+    // console.log('onMove()');
+    // console.log(e);
 
     // Update position
     if (this.ev.eventType === 'Touch') {
@@ -489,22 +491,28 @@ class Draggable {
       ) > 2
     ) {
       // Initialize the drag
-      console.log('dragInit()');
+      // console.log('dragInit()');
       this.dragInit(e);
     }
 
     // console.log(`move(${this.ev.pointerX}, ${this.ev.pointerY})`);
 
-    // Schedule animation frame to process move
-    if (this.ev.drag !== null && this.ev.drag.rafFrameId === null) {
-      this.ev.drag.rafFrameId = requestAnimationFrame(() => {
-        this.rafProcessMove();
-      });
-      /**
-       * Note: In some browsers it would be possible to skip requestAnimationFrame althogether
-       * However there is no reliable way to check if the browser schedules
-       * one move event per frame or not
-       */
+    // If dragging
+    if (this.ev.drag !== null) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Schedule animation frame to process move
+      if (this.ev.drag.rafFrameId === null) {
+        this.ev.drag.rafFrameId = requestAnimationFrame(() => {
+          this.rafProcessMove();
+        });
+        /**
+         * Note: In some browsers it would be possible to skip requestAnimationFrame althogether
+         * However there is no reliable way to check if the browser schedules
+         * one move event per frame or not
+         */
+      }
     }
   }
 
@@ -616,11 +624,47 @@ class Draggable {
   }
 
   /**
-   * Stops the drag event
+   * Handle contextmenu event (which is expected to fire for touch inputs)
+   * @param e
    */
-  private end(e : CursorEvent) {
+  private onContextmenu(e: CursorEvent) {
     if (this.ev === null) {
       throw new Error('Unexpected call');
+    }
+
+    // console.log('onContextmenu()');
+    // console.log(e);
+
+    // Prevent contextmenu if dragging
+    if (this.ev.drag !== null) {
+      // console.log('cancel contextmenu');
+      e.preventDefault();
+    } else {
+    // else stop the event
+      // console.log('Stopping the event');
+      this.stop(e);
+    }
+  }
+
+  /**
+   * Handle pointerdown/touchend/mousedown event
+   */
+  private onEnd(e : CursorEvent) {
+    if (this.ev === null) {
+      throw new Error('Unexpected call');
+    }
+
+    // console.log('onEnd()');
+    // console.log(e);
+
+    /**
+     * Stop MouseEvent sequence if touch event
+     *
+     * We are doing this onEnd(), rather than onStart() to
+     * still allow some default actions, such as contextmenu
+     */
+    if (this.ev.eventType === 'Touch') {
+      e.preventDefault();
     }
 
     // Exit if the pointer id does not match
@@ -630,6 +674,19 @@ class Draggable {
     }
 
     this.ev.ctrlKey = (this.ev.inputDevice === 'mouse' && e.ctrlKey);
+
+    // Call the stop method
+    this.stop(e);
+  }
+
+  /**
+   * Stop the event
+   * @param initiatingEvent
+   */
+  private stop(initiatingEvent: CursorEvent) {
+    if (this.ev === null) {
+      throw new Error('Unexpected call');
+    }
 
     // If dragging was initialized
     if (this.ev.drag !== null) {
@@ -644,7 +701,7 @@ class Draggable {
 
       // Execute onStop callback if supplied
       if (typeof this.options.onStop === 'function') {
-        this.options.onStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', e));
+        this.options.onStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', initiatingEvent));
       }
 
       // Remove -dragging css classes
@@ -680,16 +737,7 @@ class Draggable {
       // Else if dragging not in progress
     } else if (typeof this.options.onClick === 'function') {
       // Execute click callback if defined
-      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('click', e));
-    }
-
-    // Call the stop method
-    this.stop();
-  }
-
-  private stop() {
-    if (this.ev === null) {
-      throw new Error('Unexpected call');
+      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('click', initiatingEvent));
     }
 
     console.log('Event stopped');
