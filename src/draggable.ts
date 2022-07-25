@@ -377,8 +377,8 @@ export class Draggable {
 
     // Note: This function has to be placed after last dom read and before first dom write so that
     // the callback can both read and write to dom without unnecessarily triggering layout.
-    if (typeof this.options.onStart === 'function') {
-      this.options.onStart.call(draggedElement, this.getPublicEventProps('start', e));
+    if (typeof this.options.onDragStart === 'function') {
+      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('start', e));
     }
 
     draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
@@ -595,8 +595,8 @@ export class Draggable {
       // Manually call processMove() to render the last frame
       this.processMove();
 
-      if (typeof this.options.onStop === 'function') {
-        this.options.onStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', initiatingEvent));
+      if (typeof this.options.onDragStop === 'function') {
+        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', initiatingEvent));
       }
 
       document.body.classList.remove('draggable-is-dragging');

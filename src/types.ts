@@ -115,11 +115,9 @@ export interface Options {
 
   onClick?: (event: DraggableEvent) => void
 
-  // TODO: Rename to onDragStart
-  onStart?: (event: DraggableEvent) => void
+  onDragStart?: (event: DraggableEvent) => void
 
-  // TODO: Rename to onDragEnd
-  onStop?: (event: DraggableEvent) => void
+  onDragStop?: (event: DraggableEvent) => void
 
   /**
    * Force not using PointerEvent even if the browser supports it (for debugging).
