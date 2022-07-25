@@ -34,7 +34,7 @@ addCSS();
 /**
   * Simple, fast draggable library
   */
-class Draggable {
+export class Draggable {
   /**
    * Control variable to ignore the event on elements targeted by this.options.cancel
    */
@@ -969,5 +969,3 @@ class Draggable {
     }
   }
 }
-
-export default Draggable;
