@@ -841,7 +841,7 @@ class Draggable {
     // Set the object with grid properties
     this.ev.drag.grid = {
       // FIXME: Assign grid ids
-      gridId: parseInt(this.ev.originalElement.dataset.gridId, 10), // @domRead
+      gridId: parseInt(this.ev.originalElement.dataset.gridId || '', 10), // @domRead
       container: this.options.grid.container,
       cellWidth: this.options.grid.cellWidth,
       cellHeight: this.options.grid.cellHeight,
