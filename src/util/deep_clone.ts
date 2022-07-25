@@ -1,6 +1,4 @@
-interface IndexedObject {
-  [key: string]: any
-}
+type IndexedObject = Record<string, unknown>;
 
 const primitiveTypes = [
   'undefined',
@@ -11,9 +9,9 @@ const primitiveTypes = [
   'symbol',
 ];
 
-const isPrimitive = (value: any) => primitiveTypes.indexOf(typeof value) !== -1;
+const isPrimitive = (value: unknown) => primitiveTypes.indexOf(typeof value) !== -1;
 
-function isObjectLiteral(value: any) {
+function isPlainObject(value: unknown) {
   return (
     typeof value === 'object'
     && value !== null
@@ -22,26 +20,23 @@ function isObjectLiteral(value: any) {
   );
 }
 
-const isArray = (value: any): value is Array<any> => Array.isArray(value);
+const isArray = (value: unknown): value is Array<unknown> => Array.isArray(value);
 
 /**
  * Deeply clones following values: JS primitives, null, object literals, arrays, dates. Functions
  * and other objects are assigned by reference.
  */
- export function deepClone<T>(value: T): T {
+export function deepClone<T>(value: T): T {
   if (
-    // Null is a special case
     value === null
-    // Primitive types are assigned by copy automatically
-    || isPrimitive(value)
-    // Functions won't be cloned and are assigned by reference
-    || typeof value === 'function'
+    || isPrimitive(value) // Primitive types are assigned by copy automatically
+    || typeof value === 'function' // Functions won't be cloned and are assigned by reference
   ) {
     return value;
   }
 
   if (isArray(value)) {
-    const copy = [] as unknown as (T & Array<any>);
+    const copy = [] as unknown as (T & Array<unknown>);
 
     value.forEach((val, i) => {
       copy[i] = deepClone(value[i]);
@@ -54,7 +49,7 @@ const isArray = (value: any): value is Array<any> => Array.isArray(value);
     return new Date(value.getTime()) as unknown as T;
   }
 
-  if (isObjectLiteral(value)) {
+  if (isPlainObject(value)) {
     const copy = { } as (T & IndexedObject);
 
     for (const i of Object.keys(value)) {
@@ -64,7 +59,7 @@ const isArray = (value: any): value is Array<any> => Array.isArray(value);
     return copy;
   }
 
-  // If this point is reached, the value must be a custom object
-  // Custom objects, similarly to functions - are assigned a reference
+  // Otherwise the value must be a non-plain object (i.e. class instance) - those are passed by
+  // reference.
   return value;
 }

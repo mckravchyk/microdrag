@@ -1,30 +1,21 @@
-import type { EnhancedEventListener } from 'enhanced-event-listener';
-
 /**
  * Interface representing grid map for this.options.grid
- * E.g. grid.map[y][x] = elementId
+ *
+ * I.e. grid.map[y][x] = elementId
  */
-interface GridMap {
+export interface GridMap {
   [index: number]: { // y-axis column
     [index: number] : // x-axis column
       number | null // numeric element id in the grid (data-id)
   }
 }
 
-interface EventListeners {
-  [key: string]: EnhancedEventListener | null
-}
+export type EventListeners = 'start' | 'cancelStart' | 'move' | 'end' | 'contextmenu';
 
 /**
- * Either a MouseEvent, PointerEvent or TouchEvent.
- * Not to be confused with PointerEvent
+ * Draggable constructor options.
  */
-type PointerEvents = MouseEvent | PointerEvent | TouchEvent;
-
-/**
- * Interface representing this.options / constructor arguments of Draggable
- */
-interface Options {
+export interface Options {
   // The element to make draggable
   element: HTMLElement,
   /**
@@ -32,33 +23,30 @@ interface Options {
    *
    * If enabled, the element will be cloned and the clone will be dragged.
    * Then the original element will re-appear where the clone was dropped
-   *
-   * Breaking: this.options.helper = 'clone' to this.options.clone = { attachTo: cloneParent };
    */
   clone?: {
     // Specify the target where the draggable element is to be attached
     attachTo: HTMLElement
-  } | undefined,
+  },
 
   /**
-   * Selector string to target elements which will not initialize drag
+   * Selector string to target child elements which will not initialize drag.
    */
-  cancel?: string | undefined
+  cancel?: string
 
   /**
-   * Containment - set drag boundaries which element will not cross
-   *
-   * Breaking: Old usage: this.options.containment = Array<number>
+   * Containment - set boundaries which the dragged element will not cross.
    */
   containment?: {
     /**
      * Containment edges
      *
-     * If the number is non-negative, this is the distance from the window boundary
-     * If the number is negative, the dragged element can go past the boundary until
-     *  only x pixels of it are visible, x being the absolute value of the boundary edge value
-     *  If the right boundary is set to -30px, the element can be dragged all the way right
-     *  until only 30px of it are visible on the left side
+     * - If the number is non-negative, this is the distance from the window boundary.
+     *
+     * - If the number is negative, the dragged element can go past the boundary until only x
+     * pixels of it are visible, x being the absolute value of the boundary edge value. I.e. - if
+     * the right boundary is set to -30px, the element can be dragged all the way right until only
+     * 30px of it are visible on the left side.
      *
      * TODO: number | false - allow to specify snap only for certain edges. Low priority.
      */
@@ -77,22 +65,18 @@ interface Options {
      * TODO: Make it work with negative edges. Low priority
      */
     container?: HTMLElement | undefined
-  } | undefined
+  }
 
   /**
    * Whether the dragged element should be promoted to its own composite layer
    *
    * It's recommended for performance reasons as this will skip expensive operations such
-   * as layout and paint
-   * However there might be side effects, such as blurred out fonts.
-   *
+   * as layout and paint. However there might be side effects, such as blurred out fonts.
    */
   enableCompositing?: boolean
 
   /**
-   * Snap. Make the dragged element snap to edges
-   *
-   * Breaking: Olds specs: this.options.snap = true; this.options.snapEdges = [];
+   * Make the dragged element snap to edges.
    */
   snap?: {
     /**
@@ -115,7 +99,7 @@ interface Options {
      * TODO: Not implemented yet. Low priority.
      */
     // container: HTMLElement | false
-  } | undefined
+  }
 
   /**
    * Grid-mode - move elements on a defined grid and swap elements when they overlap
@@ -123,42 +107,43 @@ interface Options {
   grid?: {
     cellWidth: number
     cellHeight: number
-    // Breaking: this.options.grid.grid => this.options.grid.map
     map: GridMap
-    // Breaking: this.options.delegateTarget => this.options.grid.container
     container: HTMLElement
-  } | undefined
+  }
 
-  // Event callbacks
-  // Breaking: Prefixing the this.options with "on"
-  onPointerDown?: Function
-  onClick?: Function
-  onStart?: Function
-  onStop?: Function
+  onPointerDown?: (event: DraggableEvent) => void
+
+  onClick?: (event: DraggableEvent) => void
+
+  // TODO: Rename to onDragStart
+  onStart?: (event: DraggableEvent) => void
+
+  // TODO: Rename to onDragEnd
+  onStop?: (event: DraggableEvent) => void
 
   /**
-   * Force not using PointerEvent even if the browser supports it (for debugging)
+   * Force not using PointerEvent even if the browser supports it (for debugging).
    *
    * The default start event is "pointerdown" if the browser supports it, with a fallback to
    * "touchstart mousedown" if it does not. Setting this option to true will force the browser
-   * to always use "touchstart mousedown" event combination
+   * to always use "touchstart mousedown" event combination.
    *
    */
   noPointerEvent?: boolean
 
   /**
-   * Add a callback to listen for log messages
+   * A callback to listen for log messages
    * @param msg Message
    * @param data Log event data
    */
-  debugLogger?: ((id: string, msg: string, data?: any) => void) | false;
+  debugLogger?: ((id: string, msg: string, data?: unknown) => void) | false;
 }
 
 /**
- * Interface representing eventVars.drag object
- * These are properties which are specific to dragging and initialized in dragInit()
+ * Interface representing eventVars.drag object. These are properties which are specific to
+ * dragging and initialized in dragInit() .
  */
-interface DragProperties {
+export interface DragProperties {
   /**
    * The element being dragged
    */
@@ -177,11 +162,15 @@ interface DragProperties {
   lastProcessedX: number | null
   lastProcessedY: number | null
 
-  // Dragged element's original position
+  /**
+   * Dragged element's original position
+   */
   elementX0: number
   elementY0: number
 
-  // Difference between the dragged element position (edge) and the pointer position
+  /**
+   * Difference between the dragged element position (edge) and the pointer position
+   */
   deltaX: number;
   deltaY: number;
 
@@ -224,22 +213,26 @@ interface DragProperties {
      * FIXME: This id should be automatically assigned.
      */
     gridId: number
+
     /**
      * Grid cell width (in px)
      * This is used to translate raw px positions to grid positions and vice versa
      */
     cellWidth: number
     cellHeight: number
+
     /**
      * Reference to the HTMLElement which is the container for the grid
      */
     container: HTMLElement
+
     /**
      * Current position of dragged element in the grid
      * The position is an integer representing the column in the grid
      */
     gridX: number
     gridY: number
+
     /**
      * Previous grid positions which are used for comparison
      */
@@ -249,9 +242,6 @@ interface DragProperties {
 
 }
 
-/**
- * Shared properties for both DraggableEvent and DraggableEventPriv
- */
 interface SharedEventProperties {
  /**
   * Type of the API being used
@@ -263,13 +253,10 @@ interface SharedEventProperties {
    */
   inputDevice: 'mouse' | 'touch'
 
-  /**
-   * Pointer id - use this to prevent multiple touches
-   */
   pointerId: number
 
   /**
-   * The original element - if this.options.helper is disabled, this is also the dragged element
+   * The original element - if this.options.helper is disabled, this is also the dragged element.
    */
   originalElement: HTMLElement
 
@@ -289,16 +276,17 @@ interface SharedEventProperties {
   * Whether the ctrl key is on
   *
   * FIXME: Is it necessary? Perhaps for the callbacks
-  * TODO: Instead of exposing this, expose the original event in each callback
+  * TODO: Instead of exposing this, expose the original event in each callback?
   */
   ctrlKey: boolean
 
 }
 
 /**
- * Private event properties
+ * Private event properties.
+ * TODO: Rename to PrivateEventProps?
  */
-interface EventProperties extends SharedEventProperties {
+export interface EventProperties extends SharedEventProperties {
   /**
    * Drag properties, initialized at dragInit()
    */
@@ -306,11 +294,11 @@ interface EventProperties extends SharedEventProperties {
 }
 
 /**
- * Public draggable event properties exposed to callbacks
+ * Draggable event information exposed to callbacks.
  */
-interface DraggableEvent extends SharedEventProperties {
+export interface DraggableEvent extends SharedEventProperties {
   /**
-   * The name of the event, e.g. pointerdown, click, start, stop
+   * The name of the event, i.e. pointerdown, click, start, stop
    */
   eventName: string
 
@@ -320,26 +308,15 @@ interface DraggableEvent extends SharedEventProperties {
   originalEvent: Event;
 
   /**
-   * Dragged element position.
-   * This will be null on non-dragging event
+   * Dragged element's position. It will be null in an event where dragging has not been
+   * initialized.
    */
   elementX: number | null
   elementY: number | null
 
   /**
-   * The element being dragged.
+   * The element being dragged. It will be null in an event where dragging has not been initialized.
    * This will be null on a non-drag event
    */
   draggedElement: HTMLElement | null;
-
 }
-
-export type {
-  GridMap,
-  DragProperties,
-  Options,
-  DraggableEvent,
-  EventProperties,
-  EventListeners,
-  PointerEvents,
-};

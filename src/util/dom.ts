@@ -5,32 +5,23 @@ const docElem = doc.documentElement;
 const body = doc.getElementsByTagName('body')[0];
 
 /**
- * Get browser window width
+ * Gets browser window width
  */
 export function getWindowWidth() : number {
   return win.innerWidth || docElem.clientWidth || body.clientWidth;
 }
 
 /**
- * Get browser window height
+ * Gets browser window height
  */
 export function getWindowHeight() : number {
   return win.innerHeight || docElem.clientHeight || body.clientHeight;
 }
 
-/**
- * Get element's width
- * @param el
- */
 export function getWidth(el: HTMLElement) : number {
   return el.offsetWidth;
 }
 
-/**
- * Get element's height
- * @param el
- */
 export function getHeight(el: HTMLElement) : number {
   return el.offsetHeight;
 }
-
