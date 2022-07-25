@@ -1,11 +1,11 @@
+import { EnhancedEventListener } from 'enhanced-event-listener';
+
 import {
   getWidth,
   getHeight,
   getWindowWidth,
   getWindowHeight,
 } from './util/dom';
-
-import { SimpleEventListener } from '../../util/SimpleEventListener';
 
 import { deepClone } from './util/deep_clone';
 
@@ -94,7 +94,7 @@ class Draggable {
      * This has to be attached before the start event
      */
     if (options.cancel) {
-      this.listeners.cancelStart = new SimpleEventListener({
+      this.listeners.cancelStart = new EnhancedEventListener({
         target: options.element,
         eventName: startEventName,
         delegate: {
@@ -111,7 +111,7 @@ class Draggable {
     const self = this;
 
     // Attach the start event on the draggable element
-    this.listeners.start = new SimpleEventListener({
+    this.listeners.start = new EnhancedEventListener({
       target: options.element,
       eventName: startEventName,
       callback(e : CursorEvent) {
@@ -244,7 +244,7 @@ class Draggable {
     const eventNamePrefix = this.ev.eventType.toLocaleLowerCase();
 
     // Register move listener - the event type is deduced based on the start event type
-    this.listeners.move = new SimpleEventListener({
+    this.listeners.move = new EnhancedEventListener({
       target: window,
       eventName: `${eventNamePrefix}move`,
       passive: false,
@@ -256,7 +256,7 @@ class Draggable {
 
     // Register end/up listener - the event type is deduced based on the start event type
     const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'Touch') ? `${eventNamePrefix}end` : `${eventNamePrefix}up`);
-    this.listeners.end = new SimpleEventListener({
+    this.listeners.end = new EnhancedEventListener({
       target: window,
       capture: true,
       eventName: endEvent,
@@ -266,7 +266,7 @@ class Draggable {
     });
 
     // Contextmenu event handling (for touch interactions)
-    this.listeners.contextmenu = new SimpleEventListener({
+    this.listeners.contextmenu = new EnhancedEventListener({
       target: document,
       eventName: 'contextmenu',
       callback: (eInner : MouseEvent | PointerEvent | TouchEvent) => {

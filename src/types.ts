@@ -1,4 +1,4 @@
-import type { SimpleEventListener } from '../../util/SimpleEventListener';
+import type { EnhancedEventListener } from 'enhanced-event-listener';
 
 /**
  * Interface representing grid map for this.options.grid
@@ -12,7 +12,7 @@ interface GridMap {
 }
 
 interface EventListeners {
-  [key: string]: SimpleEventListener | null
+  [key: string]: EnhancedEventListener | null
 }
 
 /**
