@@ -59,6 +59,8 @@ export class Draggable {
     contextmenu: null,
   };
 
+  private lastMoveEvent: CursorEvent | null = null;
+
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
   constructor(options : Options) {
     const usePointerEvents = (
@@ -378,7 +380,7 @@ export class Draggable {
     // Note: This function has to be placed after last dom read and before first dom write so that
     // the callback can both read and write to dom without unnecessarily triggering layout.
     if (typeof this.options.onDragStart === 'function') {
-      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('start', e));
+      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('dragStart', e));
     }
 
     draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
@@ -424,6 +426,10 @@ export class Draggable {
     if (this.ev.drag !== null) {
       e.preventDefault();
       e.stopPropagation();
+
+      if (typeof this.options.onDrag === 'function') {
+        this.lastMoveEvent = e;
+      }
 
       // Schedule animation frame to process move
       if (this.ev.drag.rafFrameId === null) {
@@ -523,6 +529,12 @@ export class Draggable {
       throw new Error('Unexpected call');
     }
 
+    if (typeof this.options.onDrag === 'function' && this.lastMoveEvent) {
+      // FIXME: Perhaps it would be better to not expose the move event at all? It's a bit hacky
+      // render move is also called on stop()
+      this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('drag', this.lastMoveEvent));
+    }
+
     if (this.options.enableCompositing) {
       const transformX = this.ev.drag.elementX - this.ev.drag.elementX0;
       const transformY = this.ev.drag.elementY - this.ev.drag.elementY0;
@@ -593,10 +605,12 @@ export class Draggable {
       }
 
       // Manually call processMove() to render the last frame
+      this.lastMoveEvent = initiatingEvent;
       this.processMove();
+      this.lastMoveEvent = null;
 
       if (typeof this.options.onDragStop === 'function') {
-        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('stop', initiatingEvent));
+        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('dragStop', initiatingEvent));
       }
 
       document.body.classList.remove('draggable-is-dragging');

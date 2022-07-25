@@ -117,6 +117,8 @@ export interface Options {
 
   onDragStart?: (event: DraggableEvent) => void
 
+  onDrag?: (event: DraggableEvent) => void
+
   onDragStop?: (event: DraggableEvent) => void
 
   /**
