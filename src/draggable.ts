@@ -66,10 +66,10 @@ export class Draggable {
 
   // const moveRate = new MeasureFrequency({
   //   requiredDataPoints: 1000,
-  //   onCalculated: function(data) {
+  //   onCalculated: function(result) {
   //     console.log('move rate calculated');
-  //     console.log(`Frequency: ${this.averageFrequency}`);
-  //     console.log(`Avg interval: ${this.averageInterval}`);
+  //     console.log(`Frequency: ${result.averageFrequency}`);
+  //     console.log(`Avg interval: ${result.averageInterval}`);
   //   },
   // });
 
