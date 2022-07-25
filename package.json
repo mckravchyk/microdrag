@@ -8,7 +8,7 @@
   "private": true,
   "main": "./dist/fast-draggable.common.js",
   "module": "./dist/fast-draggable.esm.js",
-  "types": "./dist/draggable.d.ts",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint --ext ts src",
     "check-types": "tsc --noemit",
