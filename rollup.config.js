@@ -14,7 +14,7 @@ const copyright = `Copyright (c) 2020 ${pkg.author}`;
 const bannerText = `${pkg.name} v${pkg.version}\n${copyright}\nLicense: ${pkg.license}`;
 
 const defaults = {
-  input: 'src/draggable.ts',
+  input: 'src/index.ts',
   external: [
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.peerDependencies || {}),
