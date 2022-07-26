@@ -283,24 +283,20 @@ export class Draggable {
     let containment: DragProperties['containment'] = null;
     let snap: DragProperties['containment'] = null;
 
-    // Create the draggable helper, if this.options.clone is enabled
-    if (typeof this.options.clone !== 'undefined') {
-      // @domWrite
-      // Note: There is a possible layout thrashing if using the clone
-      // There is no way around it, as the element has  to be cloned and its style has
-      // to be calculated.
-      // FIXME: Add validation to check if attachTo exists
-      draggedElement = this.ev.originalElement.cloneNode(true) as HTMLElement;
-      draggedElement.setAttribute('id', '');
-      this.options.clone.attachTo.appendChild(draggedElement);
+    if (this.options.clone) {
+      draggedElement = this.ev.originalElement.cloneNode(true) as HTMLElement; // @domWrite
+      draggedElement.setAttribute('id', ''); // @domWrite
+      this.options.clone.attachTo.appendChild(draggedElement); // @domWrite
     }
     else {
       draggedElement = this.ev.originalElement;
     }
 
-    // @domRead
-    const elementWidth = draggedElement.offsetWidth;
-    const elementHeight = draggedElement.offsetHeight;
+    draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
+    document.body.classList.add('draggable-is-dragging'); // @domWrite
+
+    const elementWidth = draggedElement.offsetWidth; // @domRead
+    const elementHeight = draggedElement.offsetHeight;// @domRead
 
     // Set containment boundaries: minX, maxX, minY, maxY
     if (this.options.containment) {
@@ -310,13 +306,12 @@ export class Draggable {
       let maxY;
 
       const c = this.options.containment;
-      // domRead:
-      const windowWidth = getWindowWidth();
-      const windowHeight = getWindowHeight();
 
-      // Get the container dimensions, from container if exists, browser window otherwise
-      const containerWidth = (c.container) ? getWidth(c.container) : windowWidth;
-      const containerHeight = (c.container) ? getHeight(c.container) : windowHeight;
+      const windowWidth = getWindowWidth(); // @domRead
+      const windowHeight = getWindowHeight();// @domRead
+
+      const containerWidth = c.container ? getWidth(c.container) : windowWidth; // @domRead
+      const containerHeight = c.container ? getHeight(c.container) : windowHeight; // @domRead
 
       // A note about negative boundaries c < 0
       //
@@ -359,6 +354,8 @@ export class Draggable {
         minX = -elementWidth - c.edges.left;
       }
 
+      // TODO: This will probably need to be re-calculated after scroll when using element as a
+      // container.
       containment = {
         top: minY,
         right: maxX,
@@ -368,8 +365,8 @@ export class Draggable {
     }
 
     // Calculate snap edges
-    // @domRead
     if (this.options.snap) {
+      // @domRead
       snap = {
         top: this.options.snap.edges.top,
         bottom: getWindowHeight() - elementHeight - this.options.snap.edges.bottom,
@@ -404,17 +401,12 @@ export class Draggable {
       grid: null, // Grid will be initialized in dragInitGrid() - below
     };
 
-    // Note: This function has to be placed after last dom read and before first dom write so that
-    // the callback can both read and write to dom without unnecessarily triggering layout.
-    if (typeof this.options.onDragStart === 'function') {
-      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('dragStart', e));
-    }
-
-    draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
-    document.body.classList.add('draggable-is-dragging'); // @domWrite
-
     if (typeof this.options.grid !== 'undefined') {
       this.dragInitGrid();
+    }
+
+    if (typeof this.options.onDragStart === 'function') {
+      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('dragStart', e));
     }
   }
 
