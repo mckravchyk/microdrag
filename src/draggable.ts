@@ -108,45 +108,17 @@ export class Draggable {
     }
   }
 
-  /**
-   * Destroys the instance. Returns a prmise that indicates the instance was destroyed.
-   *
-   * @param timeout If a number is supplied the destroy operation will be executed with a timeout.
-   * This is required when the draggable instance is set to be destroyed in the onDragStop callback,
-   * after the callback fires there are still some pending operations so destoying immediately would
-   * result in an error - setting just 0ms timeout can allow to safely destroy the instance in the
-   * onDragStop callback.
-   */
-  public destroy(timeout?: number | false): Promise<void> {
-    let resolve: () => void;
-
-    const promise = new Promise<void>((r) => {
-      resolve = r;
-    });
-
-    const destroy = () => {
-      for (const listener of Object.keys(this.listeners)) {
-        if (this.listeners[listener as EventListeners] !== null) {
-          this.listeners[listener as EventListeners]!.off();
-          this.listeners[listener as EventListeners] = null;
-        }
+  public destroy(): void {
+    for (const listener of Object.keys(this.listeners)) {
+      if (this.listeners[listener as EventListeners] !== null) {
+        this.listeners[listener as EventListeners]!.off();
+        this.listeners[listener as EventListeners] = null;
       }
-
-      this.options.element.classList.remove('draggable-element');
-
-      this.ev = null;
-
-      resolve();
-    };
-
-    if (typeof timeout !== 'number') {
-      destroy();
-    }
-    else {
-      setTimeout(destroy, timeout);
     }
 
-    return promise;
+    this.options.element.classList.remove('draggable-element');
+
+    this.ev = null;
   }
 
   /**
