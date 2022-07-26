@@ -119,7 +119,17 @@ export interface Options {
 
   onDrag?: (event: DraggableEvent) => void
 
+  /**
+   * Called after dragging stopped, but before any DOM updates are made (such as removing classes or
+   * removing the clone helper).
+   */
   onDragStop?: (event: DraggableEvent) => void
+
+  /**
+   * Called after dragging stopped and after any DOM changes are applied. It is possible to destroy
+   * the draggable instance in this event.
+   */
+  onDragEnd?: (event: DraggableEvent) => void
 
   /**
    * Force not using PointerEvent even if the browser supports it (for debugging).

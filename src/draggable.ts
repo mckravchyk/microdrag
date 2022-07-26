@@ -660,7 +660,11 @@ export class Draggable {
       }
     }
 
-    this.ev.drag = null;
+    if (this.ev.drag !== null && typeof this.options.onDragEnd === 'function') {
+      this.ev.drag = null;
+      this.options.onDragEnd.call(this.ev.originalElement, this.getPublicEventProps('dragEnd', initiatingEvent));
+    }
+
     this.ev = null;
   }
 
