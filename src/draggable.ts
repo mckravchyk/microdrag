@@ -554,7 +554,7 @@ export class Draggable {
       this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('drag', this.lastMoveEvent));
     }
 
-    if (this.options.enableCompositing) {
+    if (this.options.useCompositing) {
       const transformX = this.ev.drag.elementX - this.ev.drag.elementX0;
       const transformY = this.ev.drag.elementY - this.ev.drag.elementY0;
       this.ev.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
@@ -636,7 +636,7 @@ export class Draggable {
       this.ev.drag.draggedElement.classList.remove('draggable-element-is-dragging'); // @domWrite
 
       // If using composite layer - clean up the transform, apply the position as left/top position
-      if (this.options.enableCompositing) {
+      if (this.options.useCompositing) {
         // FIXME: What if the element has existing transformation applied?
         this.ev.drag.draggedElement.style.left = `${this.ev.drag.elementX}px`; // @domWrite
         this.ev.drag.draggedElement.style.top = `${this.ev.drag.elementY}px`;

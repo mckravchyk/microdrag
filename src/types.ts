@@ -73,7 +73,7 @@ export interface Options {
    * It's recommended for performance reasons as this will skip expensive operations such
    * as layout and paint. However there might be side effects, such as blurred out fonts.
    */
-  enableCompositing?: boolean
+  useCompositing?: boolean
 
   /**
    * Make the dragged element snap to edges.
