@@ -132,6 +132,12 @@ export interface Options {
   noPointerEvent?: boolean
 
   /**
+   * The amount of distance (pixels) the pointer has to make to initialize dragging. Default value
+   * is 2px.
+   */
+  dragInitDistance?: number
+
+  /**
    * A callback to listen for log messages
    * @param msg Message
    * @param data Log event data

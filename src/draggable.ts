@@ -61,6 +61,8 @@ export class Draggable {
     contextmenu: null,
   };
 
+  private dragInitDistance = 2;
+
   private lastMoveEvent: CursorEvent | null = null;
 
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
@@ -100,6 +102,10 @@ export class Draggable {
     }
 
     this.options = deepClone(options);
+
+    if (typeof options.dragInitDistance === 'number') {
+      this.dragInitDistance = Math.abs(options.dragInitDistance);
+    }
   }
 
   /**
@@ -437,7 +443,7 @@ export class Draggable {
       && Math.sqrt(
         (this.ev.pointerX0 - this.ev.pointerX) * (this.ev.pointerX0 - this.ev.pointerX)
         + (this.ev.pointerY0 - this.ev.pointerY) * (this.ev.pointerY0 - this.ev.pointerY),
-      ) > 2 // FIXME: It should be an option, or at least, a constant.
+      ) > this.dragInitDistance
     ) {
       this.dragInit(e);
     }
