@@ -669,7 +669,9 @@ export class Draggable {
       throw new Error('Unexpected call');
     }
 
-    return deepClone({
+    // Do not use deep clone here (for performance reasons) and mind to not add deeply-nested
+    // objects to event properties.
+    return {
       eventType: this.ev.eventType,
       inputDevice: this.ev.inputDevice,
       pointerId: this.ev.pointerId,
@@ -681,10 +683,10 @@ export class Draggable {
       ctrlKey: this.ev.ctrlKey,
       eventName,
       originalEvent,
-      elementX: (this.ev.drag !== null) ? this.ev.drag.elementX : null,
-      elementY: (this.ev.drag !== null) ? this.ev.drag.elementY : null,
-      draggedElement: (this.ev.drag !== null) ? this.ev.drag.draggedElement : null,
-    });
+      elementX: this.ev.drag !== null ? this.ev.drag.elementX : null,
+      elementY: this.ev.drag !== null ? this.ev.drag.elementY : null,
+      draggedElement: this.ev.drag !== null ? this.ev.drag.draggedElement : null,
+    };
   }
 
   /**
