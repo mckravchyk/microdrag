@@ -5,6 +5,8 @@ import {
   getHeight,
   getWindowWidth,
   getWindowHeight,
+  getClientX,
+  getClientY,
 } from './util/dom';
 
 import { deepClone } from './util/deep_clone';
@@ -348,11 +350,8 @@ export class Draggable {
       };
     }
 
-    // Get the difference between helper position and pointer position
-    const style = getComputedStyle(draggedElement); // @domRead
-
-    elementX = parseInt(style.left, 10);
-    elementY = parseInt(style.top, 10);
+    elementX = getClientX(this.ev.originalElement);
+    elementY = getClientY(this.ev.originalElement);
 
     // Difference between initial pointer position and helper position.
     deltaX = this.ev.pointerX0 - elementX;

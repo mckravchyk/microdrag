@@ -25,3 +25,35 @@ export function getWidth(el: HTMLElement) : number {
 export function getHeight(el: HTMLElement) : number {
   return el.offsetHeight;
 }
+
+/**
+ * Gets element's x position relative to the viewport.
+ */
+export function getClientX(el: HTMLElement): number {
+  let offset = 0;
+  let currentElement: HTMLElement | null = el;
+
+  while (currentElement !== null) {
+    offset += currentElement.offsetLeft;
+    offset -= currentElement.scrollLeft;
+    currentElement = currentElement.offsetParent as HTMLElement | null;
+  }
+
+  return offset;
+}
+
+/**
+ * Gets element's y position relative to the viewport.
+ */
+export function getClientY(el: HTMLElement): number {
+  let offset = 0;
+  let currentElement: HTMLElement | null = el;
+
+  while (currentElement !== null) {
+    offset += currentElement.offsetTop;
+    offset -= currentElement.scrollTop;
+    currentElement = currentElement.offsetParent as HTMLElement | null;
+  }
+
+  return offset;
+}

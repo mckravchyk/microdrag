@@ -28,7 +28,9 @@ css += `.draggable-element-is-dragging {
    -webkit-user-select: none;
    -ms-user-select: none;
    user-select: none;
-   `;
+   position: fixed;
+   z-index: 100;
+   }`;
 
 export function addCSS(): void {
   const styleEl = document.createElement('style');
