@@ -514,8 +514,6 @@ export class Draggable {
     }
 
     if (typeof this.options.onDrag === 'function' && this.lastMoveEvent) {
-      // FIXME: Perhaps it would be better to not expose the move event at all? It's a bit hacky
-      // render move is also called on stop()
       this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('drag', this.lastMoveEvent));
     }
 
