@@ -149,19 +149,6 @@ export class Draggable {
     return promise;
   }
 
-  public getOption<T extends(keyof Options & string)>(option: T): Options[T] {
-    return deepClone(this.options[option]);
-  }
-
-  public setOption<T extends keyof Options>(option : T, value : Options[T]): void {
-    // TODO: Validate options?
-    this.options[option] = deepClone(value);
-
-    if (option === 'grid') {
-      this.gridMap = deepClone((value as Options['grid'])!.map);
-    }
-  }
-
   /**
    * Delegated pointerdown callback when the event target matches options.cancel selector.
    */
