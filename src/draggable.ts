@@ -68,6 +68,18 @@ export class Draggable {
 
   private dragInitDistance = 2;
 
+  /**
+   * Since the options don't change gather this information in the constructor to prevent invoking
+   * typeof to check if callback was defined in the move event.
+   */
+  private hasDragCallback = false;
+
+  private hasDragFilter = false;
+
+  /**
+   * Caching the last move event for onDrag callback and position filter - the callbacks are called
+   * from requestAnimationFrame and need to rely on previously cached value.
+   */
   private lastMoveEvent: CursorEvent | null = null;
 
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
@@ -111,6 +123,9 @@ export class Draggable {
     if (typeof options.dragInitDistance === 'number') {
       this.dragInitDistance = Math.abs(options.dragInitDistance);
     }
+
+    this.hasDragCallback = typeof options.onDrag === 'function';
+    this.hasDragFilter = typeof options.filterPosition === 'function';
   }
 
   public destroy(): void {
@@ -247,8 +262,6 @@ export class Draggable {
     let deltaY = 0;
     let elementX = 0;
     let elementY = 0;
-    let elementX0 = 0;
-    let elementY0 = 0;
 
     let containment: DragProperties['containment'] = null;
     let snap: DragProperties['containment'] = null;
@@ -352,17 +365,14 @@ export class Draggable {
     deltaX = this.ev.pointerX0 - elementX;
     deltaY = this.ev.pointerY0 - elementY;
 
-    elementX0 = elementX;
-    elementY0 = elementY;
-
     this.ev.drag = {
       draggedElement,
       deltaX,
       deltaY,
       elementX,
       elementY,
-      elementX0,
-      elementY0,
+      elementX0: elementX,
+      elementY0: elementY,
       lastProcessedX: null,
       lastProcessedY: null,
       rafFrameId: null,
@@ -418,7 +428,7 @@ export class Draggable {
       e.preventDefault();
       e.stopPropagation();
 
-      if (typeof this.options.onDrag === 'function') {
+      if (this.hasDragCallback || this.hasDragFilter) {
         this.lastMoveEvent = e;
       }
 
@@ -512,16 +522,22 @@ export class Draggable {
     this.ev.drag.elementX = newLeft;
     this.ev.drag.elementY = newTop;
 
-    this.renderMove();
-  }
+    if (this.lastMoveEvent) {
+      // Performance is critical here. It's better to share the event props rather than creating
+      // a new copy of event props for each callback.
+      const eventProps = this.getPublicEventProps('Drag', this.lastMoveEvent);
 
-  private renderMove() : void {
-    if (this.ev === null || this.ev.drag === null) {
-      throw new Error('Unexpected call');
-    }
+      if (this.hasDragFilter) {
+        const [x, y] = this.options.filterPosition!.call(this.ev.drag.draggedElement, eventProps);
+        this.ev.drag.elementX = x;
+        this.ev.drag.elementY = y;
+        eventProps.elementX = x;
+        eventProps.elementY = y;
+      }
 
-    if (typeof this.options.onDrag === 'function' && this.lastMoveEvent) {
-      this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('Drag', this.lastMoveEvent));
+      if (this.hasDragCallback) {
+        this.options.onDrag!.call(this.ev.drag.draggedElement, eventProps);
+      }
     }
 
     if (this.options.useCompositing) {
@@ -761,7 +777,7 @@ export class Draggable {
 
   /**
    * Updates the grid representation and position of the swapped element. It's called at
-   * renderMove()
+   * processMove()
    */
   private processGridUpdate() : void {
     if (this.ev === null || this.ev.drag === null

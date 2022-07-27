@@ -159,6 +159,12 @@ export interface Options {
   onDragEnd?: (event: NonDragEvent) => void
 
   /**
+   * Allows to filter dragged element's position before it's rendered. The current position can be
+   * accessed in the event props.
+   */
+  filterPosition?: (event: DragEvent) => [newElementX: number, newElementY: number],
+
+  /**
    * Force not using PointerEvent even if the browser supports it (for debugging).
    *
    * The default start event is "pointerdown" if the browser supports it, with a fallback to
