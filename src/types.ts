@@ -188,21 +188,32 @@ export interface Options {
   debugLogger?: ((id: string, msg: string, data?: unknown) => void) | false;
 }
 
+export interface SharedDragProperties {
+  /**
+   * Difference between the dragged element position (edge) and the pointer position
+   */
+  deltaX: number;
+  deltaY: number;
+
+  /**
+   * The element being dragged. It will be null in an event where dragging has not been initialized.
+   * This will be null on a non-drag event
+   */
+  draggedElement: HTMLElement;
+
+  /**
+   * Dragged element's position. It will be null in an event where dragging has not been
+   * initialized.
+   */
+   elementX: number
+   elementY: number
+}
+
 /**
  * Interface representing eventVars.drag object. These are properties which are specific to
  * dragging and initialized in dragInit() .
  */
-export interface DragProperties {
-  /**
-   * The element being dragged
-   */
-  draggedElement: HTMLElement
-
-  /**
-   * Dragged element's position
-   */
-  elementX: number
-  elementY: number
+export interface DragProperties extends SharedDragProperties {
 
   /**
    * Last processed x and y pointer values
@@ -216,12 +227,6 @@ export interface DragProperties {
    */
   elementX0: number
   elementY0: number
-
-  /**
-   * Difference between the dragged element position (edge) and the pointer position
-   */
-  deltaX: number;
-  deltaY: number;
 
   /**
    * Current id for window.requestAnimationFrame, part of the render loop
@@ -356,17 +361,4 @@ export interface NonDragEvent extends SharedEventProperties {
   originalEvent: Event;
 }
 
-export interface DragEvent extends NonDragEvent {
-  /**
-   * Dragged element's position. It will be null in an event where dragging has not been
-   * initialized.
-   */
-  elementX: number
-  elementY: number
-
-  /**
-   * The element being dragged. It will be null in an event where dragging has not been initialized.
-   * This will be null on a non-drag event
-   */
-  draggedElement: HTMLElement;
-}
+export interface DragEvent extends NonDragEvent, SharedDragProperties { }

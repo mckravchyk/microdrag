@@ -691,6 +691,8 @@ export class Draggable {
         elementX: this.ev.drag!.elementX,
         elementY: this.ev.drag!.elementY,
         draggedElement: this.ev.drag!.draggedElement,
+        deltaX: this.ev.drag!.deltaX,
+        deltaY: this.ev.drag!.deltaY,
       };
 
       return dragProps as GetEventProps<T>;
