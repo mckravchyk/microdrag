@@ -11,13 +11,18 @@ import {
 
 import { deepClone } from './util/deep_clone';
 
-import type {
+import {
   GridMap,
   EventListeners,
   Options,
-  DraggableEvent,
+  NonDragEvent,
+  DragEvent,
   EventProperties,
   DragProperties,
+  NonDragEventName,
+  DragEventName,
+  dragEventNames,
+  GetEventProps,
 } from './types';
 
 import {
@@ -41,7 +46,7 @@ export class Draggable {
    */
   private cancelled = false;
 
-  private ev: EventProperties| null = null;
+  private ev: EventProperties | null = null;
 
   private options : Options;
 
@@ -197,7 +202,7 @@ export class Draggable {
     };
 
     if (typeof this.options.onPointerDown === 'function') {
-      this.options.onPointerDown.call(eventThis, this.getPublicEventProps('pointerdown', e));
+      this.options.onPointerDown.call(eventThis, this.getPublicEventProps('PointerDown', e));
     }
 
     const eventNamePrefix = this.ev.eventType.toLocaleLowerCase();
@@ -371,7 +376,7 @@ export class Draggable {
     }
 
     if (typeof this.options.onDragStart === 'function') {
-      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('dragStart', e));
+      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('DragStart', e));
     }
   }
 
@@ -407,6 +412,8 @@ export class Draggable {
       this.dragInit(e);
     }
 
+    // This must not be put in an else if - the preceeding if block can initialize drag, in which
+    // case this block should execute on the same move.
     if (this.ev.drag !== null) {
       e.preventDefault();
       e.stopPropagation();
@@ -514,7 +521,7 @@ export class Draggable {
     }
 
     if (typeof this.options.onDrag === 'function' && this.lastMoveEvent) {
-      this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('drag', this.lastMoveEvent));
+      this.options.onDrag.call(this.ev.drag.draggedElement, this.getPublicEventProps('Drag', this.lastMoveEvent));
     }
 
     if (this.options.useCompositing) {
@@ -592,7 +599,7 @@ export class Draggable {
       this.lastMoveEvent = null;
 
       if (typeof this.options.onDragStop === 'function') {
-        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('dragStop', initiatingEvent));
+        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('DragStop', initiatingEvent));
       }
 
       document.body.classList.remove('draggable-is-dragging');
@@ -620,7 +627,7 @@ export class Draggable {
     }
     // Else if drag was not initialized.
     else if (typeof this.options.onClick === 'function') {
-      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('click', initiatingEvent));
+      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('Click', initiatingEvent));
     }
 
     for (const listener of ['move', 'contextmenu', 'end'] as const) {
@@ -632,20 +639,23 @@ export class Draggable {
 
     if (this.ev.drag !== null && typeof this.options.onDragEnd === 'function') {
       this.ev.drag = null;
-      this.options.onDragEnd.call(this.ev.originalElement, this.getPublicEventProps('dragEnd', initiatingEvent));
+      this.options.onDragEnd.call(this.ev.originalElement, this.getPublicEventProps('DragEnd', initiatingEvent));
     }
 
     this.ev = null;
   }
 
-  private getPublicEventProps(eventName: string, originalEvent: CursorEvent) : DraggableEvent {
+  private getPublicEventProps<T extends NonDragEventName | DragEventName>(
+    eventName: T,
+    originalEvent: CursorEvent,
+  ) : GetEventProps<T> {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
 
     // Do not use deep clone here (for performance reasons) and mind to not add deeply-nested
     // objects to event properties.
-    return {
+    const nonDragProps: NonDragEvent = {
       eventType: this.ev.eventType,
       inputDevice: this.ev.inputDevice,
       pointerId: this.ev.pointerId,
@@ -657,10 +667,20 @@ export class Draggable {
       ctrlKey: this.ev.ctrlKey,
       eventName,
       originalEvent,
-      elementX: this.ev.drag !== null ? this.ev.drag.elementX : null,
-      elementY: this.ev.drag !== null ? this.ev.drag.elementY : null,
-      draggedElement: this.ev.drag !== null ? this.ev.drag.draggedElement : null,
     };
+
+    if (Draggable.isDragEventName(eventName)) {
+      const dragProps: DragEvent = {
+        ...nonDragProps,
+        elementX: this.ev.drag!.elementX,
+        elementY: this.ev.drag!.elementY,
+        draggedElement: this.ev.drag!.draggedElement,
+      };
+
+      return dragProps as GetEventProps<T>;
+    }
+
+    return nonDragProps as GetEventProps<T>;
   }
 
   /**
@@ -671,6 +691,12 @@ export class Draggable {
       throw new Error('Unexpected call');
     }
     return (getCursorId(e) === this.ev.pointerId);
+  }
+
+  private static isDragEventName(
+    eventName: DragEventName | NonDragEventName,
+  ): eventName is DragEventName {
+    return (dragEventNames as unknown as string[]).includes(eventName);
   }
 
   /**

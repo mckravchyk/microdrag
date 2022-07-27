@@ -10,7 +10,20 @@ export interface GridMap {
   }
 }
 
+export const nonDragEventNames = ['PointerDown', 'Click', 'DragEnd'] as const;
+
+export const dragEventNames = ['DragStart', 'Drag', 'DragStop'] as const;
+
+export type NonDragEventName = typeof nonDragEventNames[number];
+
+export type DragEventName = typeof dragEventNames[number];
+
 export type EventListeners = 'start' | 'cancelStart' | 'move' | 'end' | 'contextmenu';
+
+export type GetEventProps<
+  T extends DragEventName | NonDragEventName
+> =
+  T extends DragEventName ? DragEvent : NonDragEvent;
 
 /**
  * Draggable constructor options.
@@ -111,25 +124,39 @@ export interface Options {
     container: HTMLElement
   }
 
-  onPointerDown?: (event: DraggableEvent) => void
+  /**
+   * Called on PointerDown on the draggable element.
+   */
+  onPointerDown?: (event: NonDragEvent) => void
 
-  onClick?: (event: DraggableEvent) => void
+  /**
+   * Called when clicking on the draggable element when dragging has not been initialized.
+   */
+  onClick?: (event: NonDragEvent) => void
 
-  onDragStart?: (event: DraggableEvent) => void
+  /**
+   * Called when drag has been initialized, after all calculations have been made and changes
+   * applied to the DOM (except the element's new position - which is applied onDrag).
+   */
+  onDragStart?: (event: DragEvent) => void
 
-  onDrag?: (event: DraggableEvent) => void
+  /**
+   * Called during drag after all calculations have been applied, just before the element's position
+   * is updated in DOM.
+   */
+  onDrag?: (event: DragEvent) => void
 
   /**
    * Called after dragging stopped, but before any DOM updates are made (such as removing classes or
    * removing the clone helper).
    */
-  onDragStop?: (event: DraggableEvent) => void
+  onDragStop?: (event: DragEvent) => void
 
   /**
    * Called after dragging stopped and after any DOM changes are applied. It is possible to destroy
    * the draggable instance in this event.
    */
-  onDragEnd?: (event: DraggableEvent) => void
+  onDragEnd?: (event: NonDragEvent) => void
 
   /**
    * Force not using PointerEvent even if the browser supports it (for debugging).
@@ -295,7 +322,6 @@ interface SharedEventProperties {
   * TODO: Instead of exposing this, expose the original event in each callback?
   */
   ctrlKey: boolean
-
 }
 
 /**
@@ -312,7 +338,7 @@ export interface EventProperties extends SharedEventProperties {
 /**
  * Draggable event information exposed to callbacks.
  */
-export interface DraggableEvent extends SharedEventProperties {
+export interface NonDragEvent extends SharedEventProperties {
   /**
    * The name of the event, i.e. pointerdown, click, start, stop
    */
@@ -322,17 +348,19 @@ export interface DraggableEvent extends SharedEventProperties {
    * Reference to the original DOM event
    */
   originalEvent: Event;
+}
 
+export interface DragEvent extends NonDragEvent {
   /**
    * Dragged element's position. It will be null in an event where dragging has not been
    * initialized.
    */
-  elementX: number | null
-  elementY: number | null
+  elementX: number
+  elementY: number
 
   /**
    * The element being dragged. It will be null in an event where dragging has not been initialized.
    * This will be null on a non-drag event
    */
-  draggedElement: HTMLElement | null;
+  draggedElement: HTMLElement;
 }
