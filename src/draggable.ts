@@ -1,8 +1,6 @@
 import { EnhancedEventListener } from 'enhanced-event-listener';
 
 import {
-  getWidth,
-  getHeight,
   getWindowWidth,
   getWindowHeight,
   getClientX,
@@ -22,7 +20,13 @@ import {
   NonDragEventName,
   DragEventName,
   dragEventNames,
-  GetEventProps,
+  GetCallbackEvent,
+  CallbackName,
+  CallbackHandlers,
+  CallbackHandlerName,
+  toHandlerName,
+  handlerNames,
+  EventName,
 } from './types';
 
 import {
@@ -34,6 +38,7 @@ import {
 import type { CursorEvent } from './util/cursor_events';
 
 import { addCSS } from './style';
+import { ArraifyObjectValues } from './util/type_functions';
 
 addCSS();
 
@@ -66,11 +71,20 @@ export class Draggable {
     contextmenu: null,
   };
 
+  /**
+   * Stores callbacks for each event - the callbacks attached in options as well as callbacks
+   * registered in plugins. The index is the CallbackHandlerName and the entry is an array of
+   * callbacks, sorted by priority and the time they were added.
+   *
+   * Pseudo-type: `Record<CallbackHandlerName, CallbackHandler[]>`
+   */
+  private callbacks: ArraifyObjectValues<CallbackHandlers>
+
   private dragInitDistance = 2;
 
   /**
-   * Since the options don't change gather this information in the constructor to prevent invoking
-   * typeof to check if callback was defined in the move event.
+   * Since the options don't change gather this information in the constructor to optimize the move
+   * event.
    */
   private hasDragCallback = false;
 
@@ -124,11 +138,49 @@ export class Draggable {
       this.dragInitDistance = Math.abs(options.dragInitDistance);
     }
 
-    this.hasDragCallback = typeof options.onDrag === 'function';
-    this.hasDragFilter = typeof options.filterPosition === 'function';
+    this.callbacks = {
+      onPointerDown: [],
+      onClick: [],
+      onDragStart: [],
+      onDrag: [],
+      onDragStop: [],
+      onDragEnd: [],
+      filterPosition: [],
+    };
+
+    const plugins = options.plugins || [];
+
+    for (const plugin of plugins) {
+      for (const eventName of Object.keys(plugin.priority)) {
+        const handlerName = toHandlerName(eventName as CallbackName);
+        this.addCallback(
+          handlerName,
+          plugin[handlerName] as CallbackHandlers[typeof handlerName],
+          // FIXME: Non-null assertion may be dropped if exactOptionalPropertyTypes flag would
+          // be enabled.
+          plugin.priority[eventName as CallbackName]!,
+        );
+      }
+    }
+
+    for (const handlerName of handlerNames) {
+      if (typeof options[handlerName] !== 'undefined') {
+        this.addCallback(
+          handlerName,
+          options[handlerName] as CallbackHandlers[typeof handlerName],
+          1000,
+        );
+      }
+    }
+
+    this.hasDragCallback = this.callbacks.onDrag.length > 0;
+    this.hasDragFilter = this.callbacks.filterPosition.length > 0;
   }
 
   public destroy(): void {
+    // FIXME: Destroy timeout option may need to be re-introduced. Now there may be multiple
+    // callbacks running onDragEnd and any of them destroying the instance would prevent further
+    // callbacks from firing. It also should also check if not already destroyed.
     for (const listener of Object.keys(this.listeners)) {
       if (this.listeners[listener as EventListeners] !== null) {
         this.listeners[listener as EventListeners]!.off();
@@ -139,6 +191,9 @@ export class Draggable {
     this.options.element.classList.remove('draggable-element');
 
     this.ev = null;
+
+    // Hacky type conversion, but is much more practical than allowing null as a type for callbacks.
+    this.callbacks = null as unknown as ArraifyObjectValues<CallbackHandlers>;
   }
 
   /**
@@ -216,9 +271,7 @@ export class Draggable {
       drag: null,
     };
 
-    if (typeof this.options.onPointerDown === 'function') {
-      this.options.onPointerDown.call(eventThis, this.getPublicEventProps('PointerDown', e));
-    }
+    this.fireEvent('PointerDown', eventThis, this.getPublicEventProps('PointerDown', e));
 
     const eventNamePrefix = this.ev.eventType.toLocaleLowerCase();
 
@@ -263,8 +316,7 @@ export class Draggable {
     let elementX = 0;
     let elementY = 0;
 
-    let containment: DragProperties['containment'] = null;
-    let snap: DragProperties['containment'] = null;
+    let snap: DragProperties['snap'] = null;
 
     if (this.options.clone) {
       draggedElement = this.ev.originalElement.cloneNode(true) as HTMLElement; // @domWrite
@@ -278,74 +330,9 @@ export class Draggable {
     draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
     document.body.classList.add('draggable-is-dragging'); // @domWrite
 
+    // FIXME: Make it available in event props
     const elementWidth = draggedElement.offsetWidth; // @domRead
     const elementHeight = draggedElement.offsetHeight;// @domRead
-
-    // Set containment boundaries: minX, maxX, minY, maxY
-    if (this.options.containment) {
-      let minX;
-      let minY;
-      let maxX;
-      let maxY;
-
-      const c = this.options.containment;
-
-      const windowWidth = getWindowWidth(); // @domRead
-      const windowHeight = getWindowHeight();// @domRead
-
-      const containerWidth = c.container ? getWidth(c.container) : windowWidth; // @domRead
-      const containerHeight = c.container ? getHeight(c.container) : windowHeight; // @domRead
-
-      // A note about negative boundaries c < 0
-      //
-      // If a boundary is negative, it allows the element to go past the boundary edge
-      // The element can go as deep as x pxs from the opposite side of the element
-      //
-      // For example, if the right boundary is set to -100px, the element
-      // can be dragged past the right edge all the way until 100px of the element's
-      // left side are still visible
-
-      // minY (top boundary)
-      if (c.edges.top >= 0) {
-        minY = c.edges.top;
-      }
-      else {
-        minY = -elementHeight - c.edges.top;
-      }
-
-      // maxX (right boundary)
-      if (c.edges.right >= 0) {
-        maxX = containerWidth - elementWidth - c.edges.right;
-      }
-      else {
-        maxX = windowWidth + c.edges.right;
-      }
-
-      // maxY (bottom boundary)
-      if (c.edges.bottom >= 0) {
-        maxY = containerHeight - elementHeight - c.edges.bottom;
-      }
-      else {
-        maxY = windowHeight + c.edges.bottom;
-      }
-
-      // minX (left boundary)
-      if (c.edges.left >= 0) {
-        minX = c.edges.left;
-      }
-      else {
-        minX = -elementWidth - c.edges.left;
-      }
-
-      // TODO: This will probably need to be re-calculated after scroll when using element as a
-      // container.
-      containment = {
-        top: minY,
-        right: maxX,
-        bottom: maxY,
-        left: minX,
-      };
-    }
 
     // Calculate snap edges
     if (this.options.snap) {
@@ -376,7 +363,6 @@ export class Draggable {
       lastProcessedX: null,
       lastProcessedY: null,
       rafFrameId: null,
-      containment,
       snap,
       grid: null, // Grid will be initialized in dragInitGrid() - below
     };
@@ -385,9 +371,7 @@ export class Draggable {
       this.dragInitGrid();
     }
 
-    if (typeof this.options.onDragStart === 'function') {
-      this.options.onDragStart.call(draggedElement, this.getPublicEventProps('DragStart', e));
-    }
+    this.fireEvent('DragStart', draggedElement, this.getPublicEventProps('DragStart', e));
   }
 
   private onInputMove = (e : CursorEvent) => {
@@ -477,28 +461,6 @@ export class Draggable {
     let newLeft = this.ev.pointerX - this.ev.drag.deltaX;
     let newTop = this.ev.pointerY - this.ev.drag.deltaY;
 
-    // TODO: Add a filter position callback and allow extra features such as containment, snap
-    // and drag as plugins?
-
-    // Sanitize the position by containment boundaries
-    if (this.ev.drag.containment !== null) {
-      // X-axis
-      if (newLeft < this.ev.drag.containment.left) {
-        newLeft = this.ev.drag.containment.left;
-      }
-      else if (newLeft > this.ev.drag.containment.right) {
-        newLeft = this.ev.drag.containment.right;
-      }
-
-      // Y-axis
-      if (newTop < this.ev.drag.containment.top) {
-        newTop = this.ev.drag.containment.top;
-      }
-      else if (newTop > this.ev.drag.containment.bottom) {
-        newTop = this.ev.drag.containment.bottom;
-      }
-    }
-
     // Sanitize the position for the snap feature
     if (this.ev.drag.snap !== null) {
       // X-axis
@@ -528,15 +490,20 @@ export class Draggable {
       const eventProps = this.getPublicEventProps('Drag', this.lastMoveEvent);
 
       if (this.hasDragFilter) {
-        const [x, y] = this.options.filterPosition!.call(this.ev.drag.draggedElement, eventProps);
-        this.ev.drag.elementX = x;
-        this.ev.drag.elementY = y;
-        eventProps.elementX = x;
-        eventProps.elementY = y;
+        for (const callback of this.callbacks.filterPosition) {
+          const result = callback.call(this.ev.drag.draggedElement, eventProps);
+
+          if (result) {
+            this.ev.drag.elementX = result[0];
+            this.ev.drag.elementY = result[1];
+            eventProps.elementX = result[0];
+            eventProps.elementY = result[1];
+          }
+        }
       }
 
       if (this.hasDragCallback) {
-        this.options.onDrag!.call(this.ev.drag.draggedElement, eventProps);
+        this.fireEvent('Drag', this.ev.drag.draggedElement, eventProps, { noCloneProps: true });
       }
     }
 
@@ -614,9 +581,7 @@ export class Draggable {
       this.processMove();
       this.lastMoveEvent = null;
 
-      if (typeof this.options.onDragStop === 'function') {
-        this.options.onDragStop.call(this.ev.drag.draggedElement, this.getPublicEventProps('DragStop', initiatingEvent));
-      }
+      this.fireEvent('DragStop', this.ev.drag.draggedElement, this.getPublicEventProps('DragStop', initiatingEvent));
 
       document.body.classList.remove('draggable-is-dragging');
       this.ev.drag.draggedElement.classList.remove('draggable-element-is-dragging'); // @domWrite
@@ -642,8 +607,8 @@ export class Draggable {
       }
     }
     // Else if drag was not initialized.
-    else if (typeof this.options.onClick === 'function') {
-      this.options.onClick.call(this.ev.originalElement, this.getPublicEventProps('Click', initiatingEvent));
+    else {
+      this.fireEvent('Click', this.ev.originalElement, this.getPublicEventProps('Click', initiatingEvent));
     }
 
     for (const listener of ['move', 'contextmenu', 'end'] as const) {
@@ -653,18 +618,45 @@ export class Draggable {
       }
     }
 
-    if (this.ev.drag !== null && typeof this.options.onDragEnd === 'function') {
+    if (this.ev.drag !== null) {
       this.ev.drag = null;
-      this.options.onDragEnd.call(this.ev.originalElement, this.getPublicEventProps('DragEnd', initiatingEvent));
+      this.fireEvent('DragEnd', this.ev.originalElement, this.getPublicEventProps('DragEnd', initiatingEvent));
     }
 
     this.ev = null;
   }
 
+  private addCallback<T extends CallbackHandlerName>(
+    handlerName: T,
+    callback: CallbackHandlers[T],
+    // FIXME: Priority is not implemented. The callbacks in the array should be arranged in order
+    // of priority.
+    priority: number,
+  ): void {
+    this.callbacks[handlerName].push(callback as CallbackHandlers[T]);
+  }
+
+  private fireEvent<T extends EventName>(
+    eventName: T,
+    eventThis: HTMLElement,
+    eventProps: GetCallbackEvent<T>,
+    options: { noCloneProps?: boolean } = { },
+  ): void {
+    const handlerName = toHandlerName(eventName);
+
+    for (const callback of this.callbacks[handlerName]) {
+      const props = options.noCloneProps ? eventProps : deepClone(eventProps);
+      // The type casting is a hack, it's not a DragEvent. For whatever reasons TS expects a
+      // DragEvent in .call() argument, it could be that it sees DragEvent as the lowest common
+      // denominator since it's compatible with both types.
+      callback.call(eventThis, props as DragEvent);
+    }
+  }
+
   private getPublicEventProps<T extends NonDragEventName | DragEventName>(
     eventName: T,
     originalEvent: CursorEvent,
-  ) : GetEventProps<T> {
+  ) : GetCallbackEvent<T> {
     if (this.ev === null) {
       throw new Error('Unexpected call');
     }
@@ -695,10 +687,10 @@ export class Draggable {
         deltaY: this.ev.drag!.deltaY,
       };
 
-      return dragProps as GetEventProps<T>;
+      return dragProps as GetCallbackEvent<T>;
     }
 
-    return nonDragProps as GetEventProps<T>;
+    return nonDragProps as GetCallbackEvent<T>;
   }
 
   /**
@@ -714,7 +706,7 @@ export class Draggable {
   private static isDragEventName(
     eventName: DragEventName | NonDragEventName,
   ): eventName is DragEventName {
-    return (dragEventNames as unknown as string[]).includes(eventName);
+    return dragEventNames.includes(eventName as DragEventName);
   }
 
   /**

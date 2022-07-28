@@ -10,25 +10,112 @@ export interface GridMap {
   }
 }
 
+export type EventListeners = 'start' | 'cancelStart' | 'move' | 'end' | 'contextmenu';
+
 export const nonDragEventNames = ['PointerDown', 'Click', 'DragEnd'] as const;
 
 export const dragEventNames = ['DragStart', 'Drag', 'DragStop'] as const;
+
+export const filterNames = ['Position'] as const;
+
+export const eventNames = [...nonDragEventNames, ...dragEventNames, ...filterNames] as const;
 
 export type NonDragEventName = typeof nonDragEventNames[number];
 
 export type DragEventName = typeof dragEventNames[number];
 
-export type EventListeners = 'start' | 'cancelStart' | 'move' | 'end' | 'contextmenu';
+export type EventName = NonDragEventName | DragEventName;
 
-export type GetEventProps<
-  T extends DragEventName | NonDragEventName
+export type FilterName = typeof filterNames[number];
+
+export type CallbackName = EventName | FilterName;
+
+export type ToHandlerName<T extends CallbackName> = T extends FilterName ? `filter${T}` : `on${T}`
+
+export function toHandlerName<T extends CallbackName>(eventName: T): ToHandlerName<T> {
+  return (
+    (filterNames as unknown as string[]).includes(eventName) ? `filter${eventName}` : `on${eventName}`) as ToHandlerName<T>;
+}
+
+export const handlerNames = eventNames.map((eventName) => toHandlerName(eventName));
+
+export type CallbackHandlerName = ToHandlerName<CallbackName>;
+
+export type GetCallbackEvent<
+  T extends CallbackName
 > =
-  T extends DragEventName ? DragEvent : NonDragEvent;
+  T extends DragEventName | FilterName ? DragEvent : NonDragEvent;
+
+export interface CallbackHandlers {
+  /**
+   * Called on PointerDown on the draggable element.
+   */
+  onPointerDown: (this: HTMLElement, event: NonDragEvent) => void
+
+  /**
+   * Called when clicking on the draggable element when dragging has not been initialized.
+   */
+  onClick: (this: HTMLElement, event: NonDragEvent) => void
+
+  /**
+   * Called when drag has been initialized, after all calculations have been made and changes
+   * applied to the DOM (except the element's new position - which is applied onDrag).
+   */
+  onDragStart: (this: HTMLElement, event: DragEvent) => void
+
+  /**
+   * Called during drag after all calculations have been applied, just before the element's position
+   * is updated in DOM.
+   */
+  onDrag: (this: HTMLElement, event: DragEvent) => void
+
+  /**
+   * Called after dragging stopped, but before any DOM updates are made (such as removing classes or
+   * removing the clone helper).
+   */
+  onDragStop: (this: HTMLElement, event: DragEvent) => void
+
+  /**
+   * Called after dragging stopped and after any DOM changes are applied. It is possible to destroy
+   * the draggable instance in this event.
+   */
+  onDragEnd: (this: HTMLElement, event: NonDragEvent) => void
+
+  /**
+   * Allows to filter dragged element's position before it's rendered. The current position can be
+   * accessed in the event props.
+   */
+  filterPosition: (
+    this: HTMLElement,
+    event: DragEvent
+  ) => [newElementX: number, newElementY: number] | false,
+}
+
+/**
+ * Constructs a record of event listeners that match the CallbackName.
+ */
+type PickCallbackHandlers<
+  T extends CallbackName
+> = Pick<CallbackHandlers, ToHandlerName<T>>
+
+/**
+ * Represents any Draggable Plugin.
+ */
+export type DraggablePluginAny = Partial<CallbackHandlers> & {
+  priority: Partial<Record<CallbackName, number>>
+}
+
+/**
+ * Draggable Plugin interface for plugins to implement.
+ */
+export type DraggablePlugin<T extends CallbackName> = PickCallbackHandlers<T> & {
+  priority: Record<T, number>
+}
 
 /**
  * Draggable constructor options.
  */
-export interface Options {
+export interface Options extends Partial<CallbackHandlers> {
   // The element to make draggable
   element: HTMLElement,
   /**
@@ -46,39 +133,6 @@ export interface Options {
    * Selector string to target child elements which will not initialize drag.
    */
   cancel?: string
-
-  /**
-   * Containment - set boundaries which the dragged element will not cross.
-   */
-  containment?: {
-    /**
-     * Containment edges
-     *
-     * - If the number is non-negative, this is the distance from the window boundary.
-     *
-     * - If the number is negative, the dragged element can go past the boundary until only x
-     * pixels of it are visible, x being the absolute value of the boundary edge value. I.e. - if
-     * the right boundary is set to -30px, the element can be dragged all the way right until only
-     * 30px of it are visible on the left side.
-     *
-     * TODO: number | false - allow to specify snap only for certain edges. Low priority.
-     */
-    edges: {
-      top: number
-      right: number
-      bottom: number
-      left: number
-    }
-    /**
-     * Containment container
-     * The edges will be calculated relative to container element boundaries
-     *
-     * Note: Currently this is ignored for negative-value edges.
-     *
-     * TODO: Make it work with negative edges. Low priority
-     */
-    container?: HTMLElement | undefined
-  }
 
   /**
    * Whether the dragged element should be promoted to its own composite layer
@@ -124,45 +178,7 @@ export interface Options {
     container: HTMLElement
   }
 
-  /**
-   * Called on PointerDown on the draggable element.
-   */
-  onPointerDown?: (event: NonDragEvent) => void
-
-  /**
-   * Called when clicking on the draggable element when dragging has not been initialized.
-   */
-  onClick?: (event: NonDragEvent) => void
-
-  /**
-   * Called when drag has been initialized, after all calculations have been made and changes
-   * applied to the DOM (except the element's new position - which is applied onDrag).
-   */
-  onDragStart?: (event: DragEvent) => void
-
-  /**
-   * Called during drag after all calculations have been applied, just before the element's position
-   * is updated in DOM.
-   */
-  onDrag?: (event: DragEvent) => void
-
-  /**
-   * Called after dragging stopped, but before any DOM updates are made (such as removing classes or
-   * removing the clone helper).
-   */
-  onDragStop?: (event: DragEvent) => void
-
-  /**
-   * Called after dragging stopped and after any DOM changes are applied. It is possible to destroy
-   * the draggable instance in this event.
-   */
-  onDragEnd?: (event: NonDragEvent) => void
-
-  /**
-   * Allows to filter dragged element's position before it's rendered. The current position can be
-   * accessed in the event props.
-   */
-  filterPosition?: (event: DragEvent) => [newElementX: number, newElementY: number],
+  plugins?: DraggablePluginAny[]
 
   /**
    * Force not using PointerEvent even if the browser supports it (for debugging).
@@ -232,19 +248,6 @@ export interface DragProperties extends SharedDragProperties {
    * Current id for window.requestAnimationFrame, part of the render loop
    */
   rafFrameId: number | null
-
-  /**
-   * Containment boundaries
-   * Set during dragInit() if this.options.containment is provided
-   *
-   * Note: Unlike this.options.containment, these are actual calculated lines/edges
-   */
-  containment: {
-    top: number
-    right: number
-    bottom: number
-    left: number
-  } | null
 
   /**
    * Snap edges (calculated lines) - set during dragInit() if this.options.snap is set

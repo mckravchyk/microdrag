@@ -18,6 +18,7 @@ export function getWindowHeight() : number {
   return win.innerHeight || docElem.clientHeight || body.clientHeight;
 }
 
+// FIXME: Remove it, it's too basic to be a function call.
 export function getWidth(el: HTMLElement) : number {
   return el.offsetWidth;
 }
