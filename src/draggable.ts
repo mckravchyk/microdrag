@@ -42,6 +42,13 @@ import { ArraifyObjectValues } from './util/type_functions';
 addCSS();
 
 /**
+ * If pointer is out of range of the element on drag init, the element position will be sanitized
+ * so it is underneath the pointer. This is the distance the pointer will have from the right or
+ * bottom edge of the element in that situation.
+ */
+const POINTER_OUT_OF_RANGE_PADDING = 10;
+
+/**
   * Simple, fast draggable library
   */
 export class Draggable {
@@ -338,6 +345,15 @@ export class Draggable {
 
     elementX = getClientX(this.ev.originalElement);
     elementY = getClientY(this.ev.originalElement);
+
+    // Sanitize pointer position to be at the end of element (with some padding) if it's out of
+    // range. This can happen when the clone helper is smaller than the original element.
+    if (elementX + elementWidth <= this.ev.pointerX0) {
+      elementX = this.ev.pointerX0 - elementWidth + POINTER_OUT_OF_RANGE_PADDING;
+    }
+    if (elementY + elementHeight <= this.ev.pointerY0) {
+      elementY = this.ev.pointerY0 - elementHeight + POINTER_OUT_OF_RANGE_PADDING;
+    }
 
     // Difference between initial pointer position and helper position.
     deltaX = this.ev.pointerX0 - elementX;
