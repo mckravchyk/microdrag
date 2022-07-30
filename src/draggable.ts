@@ -181,6 +181,7 @@ export class Draggable {
     // FIXME: Destroy timeout option may need to be re-introduced. Now there may be multiple
     // callbacks running onDragEnd and any of them destroying the instance would prevent further
     // callbacks from firing. It also should also check if not already destroyed.
+    // OR use the filter that allows destroying the instance.
     for (const listener of Object.keys(this.listeners)) {
       if (this.listeners[listener as EventListeners] !== null) {
         this.listeners[listener as EventListeners]!.off();
@@ -605,6 +606,9 @@ export class Draggable {
         this.ev.originalElement.style.left = `${(this.ev.drag.grid.gridX * this.ev.drag.grid.cellWidth)}px`;
         this.ev.originalElement.style.top = `${(this.ev.drag.grid.gridY * this.ev.drag.grid.cellHeight)}px`;
       }
+
+      // FIXME: Consider if there's a need for another event, first event before core dom
+      // changes are applied, second event after core dom changes are applied.
     }
     // Else if drag was not initialized.
     else {
@@ -617,6 +621,9 @@ export class Draggable {
         this.listeners[listener] = null;
       }
     }
+
+    // TODO: Perhaps instead of destroy timeout, I could add a filter here to destroy draggable, it
+    // would return true or false. Then DragEnd event could be removed.
 
     if (this.ev.drag !== null) {
       this.ev.drag = null;

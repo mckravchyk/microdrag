@@ -104,7 +104,7 @@ type PickCallbackHandlers<
 export type DraggablePluginAny = Partial<CallbackHandlers> & {
   priority: Partial<Record<CallbackName, number>>
 }
-
+// FIXME: Use an optional generic argument to cover both cases in a single type.
 /**
  * Draggable Plugin interface for plugins to implement.
  */
@@ -196,6 +196,8 @@ export interface Options extends Partial<CallbackHandlers> {
    */
   dragInitDistance?: number
 
+  // FIXME: That should be removed. Debug logging is most useful when moving and there should not be
+  // any code and if statements that could drag performance down, if only by little.
   /**
    * A callback to listen for log messages
    * @param msg Message

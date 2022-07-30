@@ -34,6 +34,8 @@ export type ContainmentOptions = {
   edges?: Box
 }
 
+// FIXME: It does not work properly when the container has overflow scroll.
+
 /**
  * Sets boundaries which the dragged element will not cross.
  */
