@@ -1,15 +1,3 @@
-/**
- * Interface representing grid map for this.options.grid
- *
- * I.e. grid.map[y][x] = elementId
- */
-export interface GridMap {
-  [index: number]: { // y-axis column
-    [index: number] : // x-axis column
-      number | null // numeric element id in the grid (data-id)
-  }
-}
-
 export type EventListeners = 'start' | 'cancelStart' | 'move' | 'end' | 'contextmenu';
 
 export const nonDragEventNames = ['PointerDown', 'Click', 'DragEnd'] as const;
@@ -168,16 +156,6 @@ export interface Options extends Partial<CallbackHandlers> {
     // container: HTMLElement | false
   }
 
-  /**
-   * Grid-mode - move elements on a defined grid and swap elements when they overlap
-   */
-  grid?: {
-    cellWidth: number
-    cellHeight: number
-    map: GridMap
-    container: HTMLElement
-  }
-
   plugins?: DraggablePluginAny[]
 
   /**
@@ -260,45 +238,6 @@ export interface DragProperties extends SharedDragProperties {
     bottom: number
     left: number
   } | null
-
-  /**
-   * Grid properties - set at dragInit() if optionns.grid is set
-   */
-  grid: {
-    /**
-     * Id of the dragged element in the grid
-     * This is a special grid id, not to be confused with actual element's id
-     * Each element in the grid has an id, stored in dataset.gridId
-     * FIXME: This id should be automatically assigned.
-     */
-    gridId: number
-
-    /**
-     * Grid cell width (in px)
-     * This is used to translate raw px positions to grid positions and vice versa
-     */
-    cellWidth: number
-    cellHeight: number
-
-    /**
-     * Reference to the HTMLElement which is the container for the grid
-     */
-    container: HTMLElement
-
-    /**
-     * Current position of dragged element in the grid
-     * The position is an integer representing the column in the grid
-     */
-    gridX: number
-    gridY: number
-
-    /**
-     * Previous grid positions which are used for comparison
-     */
-    lastGridX: number
-    lastGridY: number
-  } | null
-
 }
 
 interface SharedEventProperties {

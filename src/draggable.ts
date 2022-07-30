@@ -10,7 +10,6 @@ import {
 import { deepClone } from './util/deep_clone';
 
 import {
-  GridMap,
   EventListeners,
   Options,
   NonDragEvent,
@@ -54,11 +53,6 @@ export class Draggable {
   private ev: EventProperties | null = null;
 
   private options : Options;
-
-  /**
-   * Grid map representation (if this.options.grid)
-   */
-  private gridMap: (GridMap|null) = null;
 
   /**
    * Container for eventListener references
@@ -127,10 +121,6 @@ export class Draggable {
         self.onInputStart(e, this as unknown as HTMLElement);
       },
     });
-
-    if (typeof options.grid !== 'undefined') {
-      this.gridMap = deepClone(options.grid.map);
-    }
 
     this.options = deepClone(options);
 
@@ -365,12 +355,7 @@ export class Draggable {
       lastProcessedY: null,
       rafFrameId: null,
       snap,
-      grid: null, // Grid will be initialized in dragInitGrid() - below
     };
-
-    if (typeof this.options.grid !== 'undefined') {
-      this.dragInitGrid();
-    }
 
     this.fireEvent('DragStart', draggedElement, this.getPublicEventProps('DragStart', e));
   }
@@ -517,11 +502,6 @@ export class Draggable {
       this.ev.drag.draggedElement.style.left = `${this.ev.drag.elementX}px`; // @domWrite
       this.ev.drag.draggedElement.style.top = `${this.ev.drag.elementY}px`; // @domWrite
     }
-
-    // Process grid changes if using grid, this will also update the swapped element position
-    if (this.ev.drag.grid !== null) {
-      this.processGridUpdate();
-    }
   }
 
   /**
@@ -600,15 +580,9 @@ export class Draggable {
         // FIXME: It seems like relocating the dragged element is not part of the implementation?
       }
 
-      // If grid - update set the final position of the element
-      if (this.ev.drag.grid !== null) {
-        // @domWrite
-        this.ev.originalElement.style.left = `${(this.ev.drag.grid.gridX * this.ev.drag.grid.cellWidth)}px`;
-        this.ev.originalElement.style.top = `${(this.ev.drag.grid.gridY * this.ev.drag.grid.cellHeight)}px`;
-      }
-
       // FIXME: Consider if there's a need for another event, first event before core dom
-      // changes are applied, second event after core dom changes are applied.
+      // changes are applied, second event after core dom changes are applied. I.e. grid
+      // functionality, before it was removed, executed some code at the end.
     }
     // Else if drag was not initialized.
     else {
@@ -714,151 +688,5 @@ export class Draggable {
     eventName: DragEventName | NonDragEventName,
   ): eventName is DragEventName {
     return dragEventNames.includes(eventName as DragEventName);
-  }
-
-  /**
-   * Calculate the dragged element position to be set on a grid
-   */
-  private calculateGridHelperPosition() {
-    if (
-      this.ev === null
-      || this.ev.drag === null
-      || this.ev.drag.grid === null
-    ) {
-      throw new Error('Unexpected call');
-    }
-
-    if (this.ev.drag.elementX !== this.ev.pointerX - this.ev.drag.deltaX) {
-      // console.log('Warning: X difference');
-    }
-
-    if (this.ev.drag.elementY !== this.ev.pointerY - this.ev.drag.deltaY) {
-      // console.log('Warning: Y difference');
-    }
-
-    let x = this.ev.drag.elementX;
-    x = Math.round(x / this.ev.drag.grid.cellWidth);
-
-    let y = this.ev.drag.elementY;
-    y = Math.round(y / this.ev.drag.grid.cellHeight);
-
-    this.ev.drag.grid.gridX = x;
-    this.ev.drag.grid.gridY = y;
-  }
-
-  /**
-   * Sets up grid functionality. Called at dragInit()
-   */
-  private dragInitGrid() {
-    if (this.ev === null || this.ev.drag === null || typeof this.options.grid === 'undefined') {
-      throw new Error('Unexpected call');
-    }
-
-    this.ev.drag.grid = {
-      // FIXME: Assign grid ids
-      gridId: parseInt(this.ev.originalElement.dataset.gridId || '', 10), // @domRead
-      container: this.options.grid.container,
-      cellWidth: this.options.grid.cellWidth,
-      cellHeight: this.options.grid.cellHeight,
-      gridX: 0,
-      gridY: 0,
-      lastGridX: 0,
-      lastGridY: 0,
-    };
-
-    // This will populate gridX and gridY properties of eventVars.grid
-    this.calculateGridHelperPosition();
-
-    // Populate the last position variables
-    this.ev.drag.grid.lastGridX = this.ev.drag.grid.gridX;
-    this.ev.drag.grid.lastGridY = this.ev.drag.grid.gridY;
-
-    // gridSwapped = null;
-  }
-
-  /**
-   * Updates the grid representation and position of the swapped element. It's called at
-   * processMove()
-   */
-  private processGridUpdate() : void {
-    if (this.ev === null || this.ev.drag === null
-      || this.ev.drag.grid === null || this.gridMap === null) {
-      throw new Error('Unexpected call');
-    }
-
-    // A very old note (from the legacy version) - not touching it until I'm doing any work
-    // on the grid functionality.
-    //
-    // on drag init element starts with helperGridX and helperGridY
-    // get current position, if changed continue
-    // if there was element swapped previously, restore it to the previous position
-    // if another element lays on current position,
-    // swap it with the old positions (prevHelperGridX, prevHelperGridY)
-    //
-    // check if the grid position changed and then execute proper actions
-    // get and store the position of the dragged element
-    // if the position changed, find element under that position and if it exists, swap it
-    // swappedElementID = -1 or ID
-
-    this.calculateGridHelperPosition();
-
-    // If the position of the helper changes in the grid
-    if (
-      this.ev.drag.grid.gridX !== this.ev.drag.grid.lastGridX
-      || this.ev.drag.grid.gridY !== this.ev.drag.grid.lastGridY
-    ) {
-      // Swap grid elements
-      //
-      // When the dragged element enters the place on the grid of another element,
-      // the element which is there has to be swapped to the previous grid position
-      // of the dragged element
-
-      // Id of the element which is to be swapped/replaced by the dragged element
-      let swappedElementID : number | null = null;
-
-      if (
-        typeof this.gridMap[this.ev.drag.grid.gridY] !== 'undefined'
-        && typeof this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX] !== 'undefined'
-      ) {
-        swappedElementID = this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX];
-      }
-
-      // If element exists - swap it with the old position
-      if (swappedElementID !== null) {
-        const swapped = <HTMLElement> this.ev.drag.grid.container.querySelector(`[data-id="${swappedElementID}"]`); // @domRead
-
-        // Put the swapped element on the previous slot in the grid
-        this.gridMap[this.ev.drag.grid.lastGridY][this.ev.drag.grid.lastGridX] = swappedElementID;
-
-        // Update swapped element position in the dom
-        swapped.style.left = `${(this.ev.drag.grid.lastGridX * this.ev.drag.grid.cellWidth)}px`; // @domWrite
-        swapped.style.top = `${(this.ev.drag.grid.lastGridY * this.ev.drag.grid.cellHeight)}px`; // @domWrite
-      }
-      else {
-        // Indicate that the previous position on the grid is empty (no element was swapped)
-        this.gridMap[this.ev.drag.grid.lastGridY][this.ev.drag.grid.lastGridX] = null;
-      }
-
-      // Put the dragged element in the current slot on the grid
-      this.gridMap[this.ev.drag.grid.gridY][this.ev.drag.grid.gridX] = this.ev.drag.grid.gridId;
-
-      // Note: The dragged element position has already been updated before this if block
-
-      // console.log(`Grid X: ${this.ev.drag.grid.gridX} Grid Y: ${this.ev.drag.grid.gridY}`);
-      // console.log(`Grid helper id: ${this.ev.drag.grid.gridId}`);
-      // console.log(`Swapped element ID: ${swappedElementID}`);
-
-      this.ev.drag.grid.lastGridX = this.ev.drag.grid.gridX;
-      this.ev.drag.grid.lastGridY = this.ev.drag.grid.gridY;
-
-      // if (this.options.debugLogger) {
-      //   logger('gridSwap', 'grid element swapped', {
-      //     gridX: gridX,
-      //     gridY: gridY,
-      //     gridId: eventVars.grid.gridId,
-      //     swappedElementID: swappedElementID,
-      //   });
-      // }
-    }
   }
 }
