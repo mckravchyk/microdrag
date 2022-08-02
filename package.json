@@ -1,13 +1,13 @@
 {
-  "name": "fast-draggable",
+  "name": "xydrag",
   "version": "0.0.1",
-  "description": " A very performant, lightweight and extensible draggable implementation with delegated events support.",
+  "description": "Fast and lightweight draggable library with a plugin system to extend it",
   "author": "Maciej Krawczyk",
-  "homepage": "https://github.com/mckravchyk/fast-draggable",
+  "homepage": "https://github.com/mckravchyk/xydrag",
   "license": "MIT",
   "private": true,
-  "main": "./dist/fast-draggable.common.js",
-  "module": "./dist/fast-draggable.esm.js",
+  "main": "./dist/xydrag.common.js",
+  "module": "./dist/xydrag.esm.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint --ext ts src",
