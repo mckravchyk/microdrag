@@ -52,7 +52,7 @@ export function deepClone<T>(value: T): T {
   if (isPlainObject(value)) {
     const copy = { } as (T & IndexedObject);
 
-    for (const i of Object.keys(value)) {
+    for (const i of Object.keys(value as object /* FIXME: quick fix after TS upgrade, the type is off */)) {
       (copy as IndexedObject)[i] = deepClone((value as IndexedObject)[i]);
     }
 
