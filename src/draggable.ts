@@ -1,4 +1,4 @@
-import { EnhancedEventListener } from 'enhanced-event-listener';
+import { addListener } from 'event-listener-extended';
 
 import {
   getWindowWidth,
@@ -64,7 +64,7 @@ export class Draggable {
   /**
    * Container for eventListener references
    */
-  private listeners : Record<EventListeners, EnhancedEventListener | null> = {
+  private listeners : Record<EventListeners, (() => void) | null> = {
     start: null,
     cancelStart: null,
     move: null,
@@ -79,7 +79,7 @@ export class Draggable {
    *
    * Pseudo-type: `Record<CallbackHandlerName, CallbackHandler[]>`
    */
-  private callbacks: ArraifyObjectValues<CallbackHandlers>
+  private callbacks: ArraifyObjectValues<CallbackHandlers>;
 
   private dragInitDistance = 2;
 
@@ -108,10 +108,10 @@ export class Draggable {
 
     if (options.cancel) {
       // Must be attached before the start event callback is attached.
-      this.listeners.cancelStart = new EnhancedEventListener({
+      this.listeners.cancelStart = addListener({
         target: options.element,
         eventName: startEventName,
-        delegate: { selector: options.cancel },
+        delegateSelector: options.cancel,
         callback: this.onCancelPointerdown,
       });
     }
@@ -121,7 +121,7 @@ export class Draggable {
     const self = this; // eslint-disable-line @typescript-eslint/no-this-alias
 
     // Attach the start event on the draggable element
-    this.listeners.start = new EnhancedEventListener({
+    this.listeners.start = addListener({
       target: options.element,
       eventName: startEventName,
       callback(e: CursorEvent) {
@@ -181,7 +181,7 @@ export class Draggable {
     // OR use the filter that allows destroying the instance.
     for (const listener of Object.keys(this.listeners)) {
       if (this.listeners[listener as EventListeners] !== null) {
-        this.listeners[listener as EventListeners]!.off();
+        this.listeners[listener as EventListeners]!();
         this.listeners[listener as EventListeners] = null;
       }
     }
@@ -199,7 +199,7 @@ export class Draggable {
    */
   private onCancelPointerdown = () => {
     this.cancelled = true;
-  }
+  };
 
   private onInputStart = (e: CursorEvent, eventThis: HTMLElement) => {
     if (this.cancelled) {
@@ -276,7 +276,7 @@ export class Draggable {
     // eslint-disable-next-line
     // TODO: Implement a getEventName(eventType: cursorEventType, subEvent: 'start' | 'move' | 'end'); in  cursor_events.ts
 
-    this.listeners.move = new EnhancedEventListener({
+    this.listeners.move = addListener({
       target: window,
       eventName: `${eventNamePrefix}move`,
       // Passive events must be explicitly disabled, some browser default it to true in pointermove
@@ -288,19 +288,19 @@ export class Draggable {
 
     const endEvent = <'mouseup'|'touchend'|'pointerup'> ((this.ev.eventType === 'Touch') ? `${eventNamePrefix}end` : `${eventNamePrefix}up`);
 
-    this.listeners.end = new EnhancedEventListener({
+    this.listeners.end = addListener({
       target: window,
       capture: true,
       eventName: endEvent,
       callback: this.onInputEnd,
     });
 
-    this.listeners.contextmenu = new EnhancedEventListener({
+    this.listeners.contextmenu = addListener({
       target: document,
       eventName: 'contextmenu',
       callback: this.onContextmenu,
     });
-  }
+  };
 
   private dragInit(e: CursorEvent) {
     if (this.ev === null) {
@@ -428,7 +428,7 @@ export class Draggable {
         // one move event per frame or not
       }
     }
-  }
+  };
 
   private rafProcessMove(): void {
     // This must not be allowed as the render loop is expected to be cancelled on stop.
@@ -536,7 +536,7 @@ export class Draggable {
     else {
       this.stop(e);
     }
-  }
+  };
 
   private onInputEnd = (e : CursorEvent) => {
     if (this.ev === null) {
@@ -556,7 +556,7 @@ export class Draggable {
     this.ev.ctrlKey = (this.ev.inputDevice === 'mouse' && e.ctrlKey);
 
     this.stop(e);
-  }
+  };
 
   /**
    * Stops the event.
@@ -607,7 +607,7 @@ export class Draggable {
 
     for (const listener of ['move', 'contextmenu', 'end'] as const) {
       if (this.listeners[listener] !== null) {
-        this.listeners[listener]!.off();
+        this.listeners[listener]!();
         this.listeners[listener] = null;
       }
     }

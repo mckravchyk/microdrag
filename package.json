@@ -50,6 +50,6 @@
     "typescript": "5.2"
   },
   "dependencies": {
-    "enhanced-event-listener": "file:../enhanced-event-listener"
+    "event-listener-extended": "file:../event-listener-extended"
   }
 }
