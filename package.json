@@ -8,7 +8,7 @@
   "private": true,
   "main": "./dist/xydrag.common.js",
   "module": "./dist/xydrag.esm.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "scripts": {
     "lint": "eslint --ext ts src",
     "check-types": "tsc --noemit",

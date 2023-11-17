@@ -78,7 +78,7 @@ const bundle = () => [
         tsconfigOverride: {
           compilerOptions: {
             declaration: true,
-            declarationDir: './dist',
+            declarationDir: './dist/types',
           },
         },
         useTsconfigDeclarationDir: true,
