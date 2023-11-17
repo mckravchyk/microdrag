@@ -1,0 +1,20 @@
+.Draggable-1 {
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+#Draggable-1-1 {
+  background: red;;
+}
+
+#Draggable-1-2 {
+  background: blue;
+  left: 150px;
+}

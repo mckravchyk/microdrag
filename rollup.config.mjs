@@ -1,4 +1,4 @@
-/* eslint-disable import/no-extraneous-dependencies, import/no-default-export */
+/* eslint-disable import/no-extraneous-dependencies, import/no-default-export, no-console */
 
 // Using rollup-plugin-typescript2 rather than the official one as there are problems
 // with generating type declarations
@@ -7,8 +7,11 @@
 //
 // import typescript from '@rollup/plugin-typescript'
 import typescript from 'rollup-plugin-typescript2';
-
 import terser from '@rollup/plugin-terser';
+import serve from 'rollup-plugin-serve';
+import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
+
 import pkg from './package.json' assert { type: 'json' };
 
 // rollup-plugin-banner does not work anymore and the default banner will do since there are no
@@ -22,7 +25,38 @@ const banner = createBanner([
   `License: ${pkg.license}`,
 ]);
 
-const defaults = {
+// Demo dev server
+const demo = () => [
+  {
+    input: 'src/demo/index.ts',
+    output: {
+      file: 'demo/dist/demo.js',
+      format: 'cjs',
+      // exports: 'default',
+    },
+    plugins: [
+      resolve({
+        browser: true,
+        // dedupe: ['enhanced-event-listener'],
+      }),
+      typescript(),
+      commonjs(),
+      serve({
+        contentBase: ['demo'],
+        host: 'localhost',
+        port: 8080,
+        onListening(server) {
+          const address = server.address();
+          const host = address.address === '::' ? 'localhost' : address.address;
+          const protocol = this.https ? 'https' : 'http';
+          console.log(`Server listening at ${protocol}://${host}:${address.port}/`);
+        },
+      }),
+    ],
+  },
+];
+
+const bundleDefaults = {
   input: 'src/index.ts',
   external: [
     ...Object.keys(pkg.dependencies || {}),
@@ -30,16 +64,19 @@ const defaults = {
   ],
 };
 
-export default [
+// Regular library bundle
+const bundle = () => [
   // Common JS build + UMD builds for browsers
   {
-    ...defaults,
+    ...bundleDefaults,
     output: [
       {
         file: pkg.main,
         format: 'cjs',
         banner,
       },
+      // FIXME: The browser bundle should use resolve(), commonjs() and not have anything in
+      // `external`
       {
         file: `dist/${pkg.name}.js`,
         format: 'umd',
@@ -58,12 +95,12 @@ export default [
     ],
     plugins: [
       typescript(),
-    ]
+    ],
   },
 
   // ESM build + TypeScript declarations
   {
-    ...defaults,
+    ...bundleDefaults,
     output: {
       file: pkg.module,
       format: 'es',
@@ -83,3 +120,5 @@ export default [
     ],
   },
 ];
+
+export default process.env.dev === 'true' ? demo() : bundle();
