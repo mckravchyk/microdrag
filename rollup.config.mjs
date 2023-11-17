@@ -56,27 +56,54 @@ const demo = () => [
   },
 ];
 
-const bundleDefaults = {
-  input: 'src/index.ts',
-  external: [
-    ...Object.keys(pkg.dependencies || {}),
-    ...Object.keys(pkg.peerDependencies || {}),
-  ],
+const external = {
+  ...Object.keys(pkg.dependencies || {}),
+  ...Object.keys(pkg.peerDependencies || {}),
 };
 
 // Regular library bundle
 const bundle = () => [
-  // Common JS build + UMD builds for browsers
+  // ESM build + TypeScript declarations
   {
-    ...bundleDefaults,
+    input: 'src/index.ts',
+    external,
+    output: {
+      file: pkg.module,
+      format: 'es',
+      banner,
+    },
+    plugins: [
+      typescript({
+        tsconfig: 'tsconfig.json',
+        tsconfigOverride: {
+          compilerOptions: {
+            declaration: true,
+            declarationDir: './dist',
+          },
+        },
+        useTsconfigDeclarationDir: true,
+      }),
+    ],
+  },
+
+  // CommonJS
+  {
+    input: 'src/index.ts',
+    external,
+    output: {
+      file: pkg.main,
+      format: 'cjs',
+      banner,
+    },
+    plugins: [
+      typescript(),
+    ],
+  },
+
+  // UMD builds for browsers
+  {
+    input: 'src/index.ts',
     output: [
-      {
-        file: pkg.main,
-        format: 'cjs',
-        banner,
-      },
-      // FIXME: The browser bundle should use resolve(), commonjs() and not have anything in
-      // `external`
       {
         file: `dist/${pkg.name}.js`,
         format: 'umd',
@@ -94,29 +121,9 @@ const bundle = () => [
       },
     ],
     plugins: [
+      resolve({ browser: true }),
       typescript(),
-    ],
-  },
-
-  // ESM build + TypeScript declarations
-  {
-    ...bundleDefaults,
-    output: {
-      file: pkg.module,
-      format: 'es',
-      banner,
-    },
-    plugins: [
-      typescript({
-        tsconfig: 'tsconfig.json',
-        tsconfigOverride: {
-          compilerOptions: {
-            declaration: true,
-            declarationDir: './dist',
-          },
-        },
-        useTsconfigDeclarationDir: true,
-      }),
+      commonjs(),
     ],
   },
 ];
