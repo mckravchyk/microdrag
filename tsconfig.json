@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "exactOptionalPropertyTypes": true,
     "useDefineForClassFields": true,
-    "verbatimModuleSyntax": false,
+    "verbatimModuleSyntax": true,
     "baseUrl": "./",
     "paths": {
       "xydrag": ["src/index.ts"]

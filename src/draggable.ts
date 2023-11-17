@@ -10,22 +10,22 @@ import {
 import { deepClone } from './util/deep_clone';
 
 import {
-  EventListeners,
-  Options,
-  NonDragEvent,
-  DragEvent,
-  EventProperties,
-  DragProperties,
-  NonDragEventName,
-  DragEventName,
   dragEventNames,
-  GetCallbackEvent,
-  CallbackName,
-  CallbackHandlers,
-  CallbackHandlerName,
   toHandlerName,
   handlerNames,
-  EventName,
+  type EventListeners,
+  type Options,
+  type NonDragEvent,
+  type DragEvent,
+  type EventProperties,
+  type DragProperties,
+  type NonDragEventName,
+  type DragEventName,
+  type GetCallbackEvent,
+  type CallbackName,
+  type CallbackHandlers,
+  type CallbackHandlerName,
+  type EventName,
 } from './types';
 
 import {
@@ -37,7 +37,7 @@ import {
 import type { CursorEvent } from './util/cursor_events';
 
 import { addCSS } from './style';
-import { ArraifyObjectValues } from './util/type_functions';
+import { type ArraifyObjectValues } from './util/type_functions';
 
 addCSS();
 
