@@ -39,8 +39,6 @@ import type { CursorEvent } from './util/cursor_events';
 import { addCSS } from './style';
 import { type ArraifyObjectValues } from './util/type_functions';
 
-addCSS();
-
 /**
  * If pointer is out of range of the element on drag init, the element position will be sanitized
  * so it is underneath the pointer. This is the distance the pointer will have from the right or
@@ -96,6 +94,20 @@ export class Draggable {
    * from requestAnimationFrame and need to rely on previously cached value.
    */
   private lastMoveEvent: CursorEvent | null = null;
+
+  private static cssAdded = false;
+
+  /**
+   * Adds global styles which are needed for draggable to function properly. It is recommended to
+   * call this method before initializing draggables.
+   */
+  public static addGlobalStyles() {
+    if (Draggable.cssAdded) {
+      throw new Error('Styles already added');
+    }
+
+    addCSS();
+  }
 
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
   constructor(options : Options) {

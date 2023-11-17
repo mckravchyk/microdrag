@@ -34,7 +34,7 @@ css += `.draggable-element-is-dragging {
 
 export function addCSS(): void {
   const styleEl = document.createElement('style');
-  styleEl.id = 'Draggable-css';
+  styleEl.id = 'xydrag-css';
   styleEl.innerHTML = css;
   document.getElementsByTagName('head')[0].appendChild(styleEl);
 }
