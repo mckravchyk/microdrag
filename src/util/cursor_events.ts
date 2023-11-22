@@ -1,11 +1,14 @@
 // A set of utilities for working with "cursor events" (MouseEvents, PointerEvents, TouchEvents)
 
-// TODO: Rename to input events?
+// TODO: Rename to input events? Input is more broad than pointer, but in the case of draggable
+// only pointers are considered. Cursor does not feel right, touch events do not have a cursor.
 
 /**
  * Either a MouseEvent, PointerEvent or TouchEvent
  */
 export type CursorEvent = MouseEvent | PointerEvent | TouchEvent;
+
+// FIXME: Those types below should be PascalCase
 
 /**
  * Names of possible cursor events: 'mouse', 'pointer' or 'touch'

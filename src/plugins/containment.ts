@@ -1,4 +1,4 @@
-import type { DragEvent, DraggablePlugin } from '../types';
+import type { DragEvent, DraggablePlugin } from '../events';
 
 import { deepClone } from '../util/deep_clone';
 
@@ -170,5 +170,5 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
     }
 
     return [x, y];
-  }
+  };
 }
