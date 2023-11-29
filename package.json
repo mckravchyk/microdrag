@@ -38,7 +38,7 @@
     "@typescript-eslint/parser": "^6.1.0",
     "babel-jest": "^29.6.1",
     "eslint": "^8.45.0",
-    "eslint-config-mckravchyk": "github:mckravchyk/eslint-config-mckravchyk",
+    "eslint-config-mckravchyk": "^1.0.0",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-jest": "^27.2.3",
     "jest": "^29.6.1",
@@ -50,6 +50,6 @@
     "typescript": "5.2"
   },
   "dependencies": {
-    "event-listener-extended": "file:../event-listener-extended"
+    "event-listener-extended": "^1.0.0"
   }
 }
