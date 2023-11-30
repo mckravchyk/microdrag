@@ -51,6 +51,11 @@ const demo = () => [
           const host = address.address === '::' ? 'localhost' : address.address;
           const protocol = this.https ? 'https' : 'http';
           console.log(`Server listening at ${protocol}://${host}:${address.port}/`);
+
+          server.on('connection', (socket) => {
+            const clientIP = socket.remoteAddress;
+            console.log(`Incoming connection from: ${clientIP}`);
+          });
         },
       }),
     ],
