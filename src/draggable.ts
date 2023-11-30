@@ -66,34 +66,6 @@ export interface Options extends Partial<CallbackHandlers> {
   useCompositing?: boolean
 
   /**
-   * Make the dragged element snap to edges.
-   *
-   * FIXME: This must be split away to a plugin.
-   */
-  snap?: {
-    /**
-     * Snap edges relative to the container dimensions or window
-     *
-     * E.g. if top is set to 30px and window is the container, the element can't
-     * be dragged closer than 30px to the edge of the window
-     *
-     * TODO: number | false - allow to specify snap only for certain edges. Low priority.
-     */
-    edges: {
-      top: number
-      right: number
-      bottom: number
-      left: number
-    }
-    /**
-     * Edge container
-     * The edges will be calculated relative to container element boundaries
-     * TODO: Not implemented yet. Low priority.
-     */
-    // container: HTMLElement | false
-  }
-
-  /**
    * Add plugins to extend draggable capabilities.
    */
   plugins?: DraggablePluginAny[]

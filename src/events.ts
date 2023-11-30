@@ -116,16 +116,6 @@ export interface DragProperties extends SharedDragProperties {
    * Current id for window.requestAnimationFrame, part of the render loop
    */
   rafFrameId: number | null
-
-  /**
-   * Snap edges (calculated lines) - set during dragInit() if this.options.snap is set
-   */
-  snap: {
-    top: number
-    right: number
-    bottom: number
-    left: number
-  } | null
 }
 
 export type FilterName = typeof filterNames[number];
@@ -325,7 +315,7 @@ export function applyPositionFilters(ctx: DragContext, event: DragEvent): void {
 
 /**
  * Fires the drag event, exclusively. Unlike other events, DragEvent properties are never cloned for
- * each callback, the the event is also passed rather than created to re-use it with the filter.
+ * each callback, the event is also passed rather than created to re-use it with the filter.
  */
 export function fireDragEvent(ctx: DragContext, event: DragEvent): void {
   for (const callback of ctx.callbacks.onDrag) {

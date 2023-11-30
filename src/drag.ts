@@ -1,9 +1,4 @@
-import {
-  getWindowWidth,
-  getWindowHeight,
-  getClientX,
-  getClientY,
-} from './util/dom';
+import { getClientX, getClientY } from './util/dom';
 
 import {
   getCursorEventType,
@@ -134,8 +129,6 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   let elementX = 0;
   let elementY = 0;
 
-  let snap: DragProperties['snap'] = null;
-
   if (ctx.options.clone) {
     draggedElement = ctx.event.originalElement.cloneNode(true) as HTMLElement; // @domWrite
     draggedElement.setAttribute('id', ''); // @domWrite
@@ -151,17 +144,6 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   // FIXME: Make it available in event props
   const elementWidth = draggedElement.offsetWidth; // @domRead
   const elementHeight = draggedElement.offsetHeight;// @domRead
-
-  // Calculate snap edges
-  if (ctx.options.snap) {
-    // @domRead
-    snap = {
-      top: ctx.options.snap.edges.top,
-      bottom: getWindowHeight() - elementHeight - ctx.options.snap.edges.bottom,
-      left: ctx.options.snap.edges.left,
-      right: getWindowWidth() - elementWidth - ctx.options.snap.edges.right,
-    };
-  }
 
   elementX = getClientX(ctx.event.originalElement);
   elementY = getClientY(ctx.event.originalElement);
@@ -190,7 +172,6 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
     lastProcessedX: null,
     lastProcessedY: null,
     rafFrameId: null,
-    snap,
   };
 
   fireEvent(ctx, 'DragStart', e);
@@ -275,32 +256,8 @@ function processMove(ctx: DragContext) {
   ctx.drag.lastProcessedX = ctx.event.pointerX;
   ctx.drag.lastProcessedY = ctx.event.pointerY;
 
-  // Calculate the dragged element position
-  let newLeft = ctx.event.pointerX - ctx.drag.deltaX;
-  let newTop = ctx.event.pointerY - ctx.drag.deltaY;
-
-  // Sanitize the position for the snap feature
-  if (ctx.drag.snap !== null) {
-    // X-axis
-    // TODO: No magic numbers for sensitivity - add an option
-    if (Math.abs(newLeft - ctx.drag.snap.left) < 10) {
-      newLeft = ctx.drag.snap.left;
-    }
-    else if (Math.abs(newLeft - ctx.drag.snap.right) < 10) {
-      newLeft = ctx.drag.snap.right;
-    }
-
-    // Y-axis
-    if (Math.abs(newTop - ctx.drag.snap.top) < 10) {
-      newTop = ctx.drag.snap.top;
-    }
-    else if (Math.abs(newTop - ctx.drag.snap.bottom) < 10) {
-      newTop = ctx.drag.snap.bottom;
-    }
-  }
-
-  ctx.drag.elementX = newLeft;
-  ctx.drag.elementY = newTop;
+  ctx.drag.elementX = ctx.event.pointerX - ctx.drag.deltaX;
+  ctx.drag.elementY = ctx.event.pointerY - ctx.drag.deltaY;
 
   if (ctx.lastMoveEvent && (ctx.hasDragFilter || ctx.hasDragCallback)) {
     const eventProps = getPublicEventProps(ctx, 'Drag', ctx.lastMoveEvent);
