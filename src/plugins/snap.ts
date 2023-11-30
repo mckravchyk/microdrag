@@ -89,7 +89,8 @@ export class SnapPlugin implements DraggablePlugin<'DragStart' | 'Position'> {
   public constructor(options: SnapOptions) {
     this.options = deepClone(options);
 
-    this.edgeOptions = this.options.edges || { };
+    // eslint-disable-next-line object-curly-newline
+    this.edgeOptions = this.options.edges || { top: 0, right: 0, bottom: 0, left: 0 };
 
     for (const edge of Object.keys(this.edgeOptions)) {
       this.thresholds[edge as Edge] = this.computeThreshold(edge as Edge);
