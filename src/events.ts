@@ -308,3 +308,27 @@ export function fireEvent<T extends EventName>(
     callback.call(ctx.event.originalElement, props as DragEvent);
   }
 }
+
+export function applyPositionFilters(ctx: DragContext, event: DragEvent): void {
+  for (const callback of ctx.callbacks.filterPosition) {
+    const result = callback.call(ctx.drag!.draggedElement, event);
+
+    if (result) {
+      event.elementX = result[0];
+      event.elementY = result[1];
+    }
+  }
+
+  ctx.drag!.elementX = event.elementX;
+  ctx.drag!.elementY = event.elementY;
+}
+
+/**
+ * Fires the drag event, exclusively. Unlike other events, DragEvent properties are never cloned for
+ * each callback, the the event is also passed rather than created to re-use it with the filter.
+ */
+export function fireDragEvent(ctx: DragContext, event: DragEvent): void {
+  for (const callback of ctx.callbacks.onDrag) {
+    callback.call(ctx.event.originalElement, event);
+  }
+}

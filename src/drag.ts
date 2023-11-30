@@ -22,6 +22,8 @@ import {
   type SharedEventProperties,
   getPublicEventProps,
   fireEvent,
+  fireDragEvent,
+  applyPositionFilters,
 } from './events';
 
 /**
@@ -212,7 +214,6 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
   // Note: This might be obvious, but don't think about trying to compare previous values of the
   // pointer to see if they changed - the event already does it.
 
-  // Initialize drag if minimal distance has been reached.
   if (ctx.drag === null
     && Math.sqrt(
       /* eslint-disable max-len */
@@ -301,26 +302,15 @@ function processMove(ctx: DragContext) {
   ctx.drag.elementX = newLeft;
   ctx.drag.elementY = newTop;
 
-  if (ctx.lastMoveEvent) {
-    // Performance is critical here. It's better to share the event props rather than creating
-    // a new copy of event props for each callback.
+  if (ctx.lastMoveEvent && (ctx.hasDragFilter || ctx.hasDragCallback)) {
     const eventProps = getPublicEventProps(ctx, 'Drag', ctx.lastMoveEvent);
 
     if (ctx.hasDragFilter) {
-      for (const callback of ctx.callbacks.filterPosition) {
-        const result = callback.call(ctx.drag.draggedElement, eventProps);
-
-        if (result) {
-          ctx.drag.elementX = result[0];
-          ctx.drag.elementY = result[1];
-          eventProps.elementX = result[0];
-          eventProps.elementY = result[1];
-        }
-      }
+      applyPositionFilters(ctx, eventProps);
     }
 
     if (ctx.hasDragCallback) {
-      fireEvent(ctx, 'Drag', ctx.lastMoveEvent, { noCloneProps: true });
+      fireDragEvent(ctx, eventProps);
     }
   }
 
