@@ -1,12 +1,12 @@
-import { getClientX, getClientY } from './util/dom';
+import { getClientX, getClientY } from './lib/dom';
 
 import {
   getCursorEventType,
   getCursorId,
   getCursorType,
-} from './util/cursor_events';
+} from './lib/cursor_events';
 
-import type { CursorEvent } from './util/cursor_events';
+import type { CursorEvent } from './lib/cursor_events';
 
 import type { Options } from './draggable';
 

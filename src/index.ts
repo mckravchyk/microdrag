@@ -2,7 +2,7 @@ import { Draggable, type Options } from './draggable';
 
 import { ContainmentPlugin } from './plugins/containment';
 
-import { getClientX, getClientY } from './util/dom';
+import { getClientX, getClientY } from './lib/dom';
 
 import type { NonDragEvent, DragEvent } from './events';
 

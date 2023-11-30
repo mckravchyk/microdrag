@@ -1,13 +1,13 @@
 import type { DragEvent, DraggablePlugin } from '../events';
 
-import { deepClone } from '../util/deep_clone';
+import { deepClone } from '../lib/deep_clone';
 
 import {
   getClientX,
   getClientY,
   getWindowHeight,
   getWindowWidth,
-} from '../util/dom';
+} from '../lib/dom';
 
 type Box = {
   top: number

@@ -1,8 +1,8 @@
 import { addListener } from 'event-listener-extended';
 
-import { deepClone } from './util/deep_clone';
+import { deepClone } from './lib/deep_clone';
 
-import { getCursorType, type CursorEvent, getCursorId } from './util/cursor_events';
+import { getCursorType, type CursorEvent, getCursorId } from './lib/cursor_events';
 
 import {
   createDragContext,

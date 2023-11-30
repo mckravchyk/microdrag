@@ -1,7 +1,7 @@
 import type { DragContext } from './drag';
-import type { CursorEvent, cursorEventType } from './util/cursor_events';
-import { deepClone } from './util/deep_clone';
-import type { ArraifyObjectValues } from './util/type_functions';
+import type { CursorEvent, cursorEventType } from './lib/cursor_events';
+import { deepClone } from './lib/deep_clone';
+import type { ArraifyObjectValues } from './lib/type_functions';
 
 export const nonDragEventNames = ['PointerDown', 'Click', 'DragEnd'] as const;
 

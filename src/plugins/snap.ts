@@ -1,11 +1,11 @@
 import type { DragEvent, DraggablePlugin } from '../events';
 
-import { deepClone } from '../util/deep_clone';
+import { deepClone } from '../lib/deep_clone';
 
 import {
   getWindowHeight,
   getWindowWidth,
-} from '../util/dom';
+} from '../lib/dom';
 
 interface Thresholds {
   /**
