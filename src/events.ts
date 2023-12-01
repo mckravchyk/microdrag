@@ -57,15 +57,27 @@ export interface SharedEventProperties {
    originalElement: HTMLElement
 
    /**
-    * Current cursor position
+    * The element that is being interacted with. It is always the dragged element when dragging, but
+    * the original element in other cases (including DragStop).
     */
+   activeElement: HTMLElement
+
+   activeElementWidth: number
+
+   activeElementHeight: number
+
    pointerX: number
+
    pointerY: number
 
    /**
-    * Cursor position at init
+    * The pointer position at the start of the event (x).
     */
    pointerX0: number
+
+   /**
+    * The pointer position at the start of the event (y).
+    */
    pointerY0: number
 
   /**
@@ -231,6 +243,9 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
     inputDevice: ctx.event.inputDevice,
     pointerId: ctx.event.pointerId,
     originalElement: ctx.event.originalElement,
+    activeElement: ctx.event.activeElement,
+    activeElementWidth: ctx.event.activeElementWidth,
+    activeElementHeight: ctx.event.activeElementHeight,
     pointerX: ctx.event.pointerX,
     pointerY: ctx.event.pointerY,
     pointerX0: ctx.event.pointerX0,

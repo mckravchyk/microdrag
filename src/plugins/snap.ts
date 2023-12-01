@@ -98,14 +98,14 @@ export class SnapPlugin implements DraggablePlugin<'DragStart' | 'Position'> {
   }
 
   public onDragStart = (e: DragEvent): void => {
-    // FIXME: Make this available in event props
-    const elementWidth = e.draggedElement.offsetWidth; // @domRead
-    const elementHeight = e.draggedElement.offsetHeight;// @domRead
-
     // FIXME: This probably needs to be re-calculated on window resize and scroll. (yes, window
     // can resize while a pointer is active).
     for (const edge of Object.keys(this.edgeOptions)) {
-      this.snap[edge as Edge] = this.computeEdge(edge as Edge, elementWidth, elementHeight);
+      this.snap[edge as Edge] = this.computeEdge(
+        edge as Edge,
+        e.activeElementWidth,
+        e.activeElementHeight,
+      );
     }
   };
 

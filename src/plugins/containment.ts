@@ -75,10 +75,6 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
     let right: number;
     let bottom: number;
 
-    // FIXME: Make this available in event props
-    const elementWidth = e.draggedElement.offsetWidth; // @domRead
-    const elementHeight = e.draggedElement.offsetHeight;// @domRead
-
     const windowWidth = getWindowWidth(); // @domRead
     const windowHeight = getWindowHeight();// @domRead
 
@@ -114,25 +110,25 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
       left = containerX + this.containerEdges.left;
     }
     else {
-      left = containerY + Math.abs(this.containerEdges.left) - elementWidth;
+      left = containerY + Math.abs(this.containerEdges.left) - e.activeElementWidth;
     }
 
     if (this.containerEdges.top >= 0) {
       top = containerY + this.containerEdges.top;
     }
     else {
-      top = containerY + Math.abs(this.containerEdges.top) - elementHeight;
+      top = containerY + Math.abs(this.containerEdges.top) - e.activeElementHeight;
     }
 
     if (this.containerEdges.right >= 0) {
-      right = containerWidth + containerX - elementWidth - this.containerEdges.right;
+      right = containerWidth + containerX - e.activeElementWidth - this.containerEdges.right;
     }
     else {
       right = containerX + containerWidth - Math.abs(this.containerEdges.right);
     }
 
     if (this.containerEdges.bottom >= 0) {
-      bottom = containerHeight + containerY - elementHeight - this.containerEdges.bottom;
+      bottom = containerHeight + containerY - e.activeElementHeight - this.containerEdges.bottom;
     }
     else {
       bottom = containerY + containerHeight - Math.abs(this.containerEdges.bottom);

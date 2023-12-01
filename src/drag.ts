@@ -104,6 +104,9 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
       pointerId: getCursorId(e),
       ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
       originalElement: props.target,
+      activeElement: props.target,
+      activeElementWidth: props.target.offsetWidth, // @domRead
+      activeElementHeight: props.target.offsetHeight, // @domRead
       pointerX0,
       pointerY0,
       pointerX: pointerX0,
@@ -141,20 +144,24 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
   document.body.classList.add('draggable-is-dragging'); // @domWrite
 
-  // FIXME: Make it available in event props
-  const elementWidth = draggedElement.offsetWidth; // @domRead
-  const elementHeight = draggedElement.offsetHeight;// @domRead
+  ctx.event.activeElement = draggedElement;
+
+  // The element dimensions need to be updated not just because the clone may be different but also
+  // because adding the is-dragging class could potentially change its dimensions.
+  ctx.event.activeElementWidth = draggedElement.offsetWidth; // @domRead
+  ctx.event.activeElementHeight = draggedElement.offsetHeight; // @domRead
 
   elementX = getClientX(ctx.event.originalElement);
   elementY = getClientY(ctx.event.originalElement);
 
   // Sanitize pointer position to be at the end of element (with some padding) if it's out of
   // range. This can happen when the clone helper is smaller than the original element.
-  if (elementX + elementWidth <= ctx.event.pointerX0) {
-    elementX = ctx.event.pointerX0 - elementWidth + POINTER_OUT_OF_RANGE_PADDING;
+  if (elementX + ctx.event.activeElementWidth <= ctx.event.pointerX0) {
+    elementX = ctx.event.pointerX0 - ctx.event.activeElementWidth + POINTER_OUT_OF_RANGE_PADDING;
   }
-  if (elementY + elementHeight <= ctx.event.pointerY0) {
-    elementY = ctx.event.pointerY0 - elementHeight + POINTER_OUT_OF_RANGE_PADDING;
+
+  if (elementY + ctx.event.activeElementHeight <= ctx.event.pointerY0) {
+    elementY = ctx.event.pointerY0 - ctx.event.activeElementHeight + POINTER_OUT_OF_RANGE_PADDING;
   }
 
   // Difference between initial pointer position and helper position.
@@ -312,9 +319,15 @@ export function stop(ctx: DragContext, initiatingEvent: CursorEvent) {
     }
 
     if (ctx.options.clone) {
+      ctx.event.activeElement = ctx.event.originalElement;
       ctx.options.clone.attachTo.removeChild(ctx.drag.draggedElement); // @domWrite
       // FIXME: It seems like relocating the dragged element is not part of the implementation?
     }
+
+    // Again, it needs to be updated even if clone was not used because the dimensions could have
+    // changed due to classes.
+    ctx.event.activeElementWidth = ctx.event.activeElement.offsetWidth; // @domRead
+    ctx.event.activeElementHeight = ctx.event.activeElement.offsetHeight; // @domRead
 
     // FIXME: Consider if there's a need for another event, first event before core dom
     // changes are applied, second event after core dom changes are applied. I.e. grid
