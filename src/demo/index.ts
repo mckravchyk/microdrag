@@ -1,7 +1,10 @@
 import { SnapPlugin } from 'src/plugins/snap';
 import { ContainmentPlugin, Draggable } from 'xydrag';
+import { createLogger } from './logger';
 
 /* eslint-disable no-new */
+
+createLogger();
 
 Draggable.addGlobalStyles();
 

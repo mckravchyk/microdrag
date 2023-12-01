@@ -10,8 +10,17 @@
 </head>
 
 <body tabindex="-1">
-  <div id="Draggable-1-1" class="Draggable-1">Move me</div>
-  <div id="Draggable-1-2" class="Draggable-1" title="This draggable cannot be moved outside the viewport">Move me</div>
+  <div id="Draggable-1-1" class="Draggable-1">1</div>
+  <div id="Draggable-1-2" class="Draggable-1" title="This draggable cannot be moved outside the viewport">2</div>
+
+	<div id="Logger" class="collapsed">
+		<div id="Logger-header">
+			<button id="Logger-toggle" title="Click to toggle">Logger</button>
+			<div style="flex-grow: 1;"></div>
+			<button id="Logger-clear">Clear</button>
+		</div>
+		<div id="Logger-messages"></div>
+	</div>
 	<script src='./dist/demo.js'></script>
 </body>
 </html>

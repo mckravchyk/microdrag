@@ -1,3 +1,8 @@
+body {
+  background: rgb(53, 71, 117);
+  font-family: "Roboto", sans-serif;
+}
+
 .Draggable-1 {
   position: fixed;
   width: 100px;
@@ -11,10 +16,67 @@
 }
 
 #Draggable-1-1 {
-  background: red;;
+  background: rgb(172, 63, 63);;
 }
 
 #Draggable-1-2 {
-  background: blue;
+  background: rgb(56, 163, 149);
   left: 150px;
+}
+
+#Logger {
+  position: fixed;
+  bottom: 0;
+  height: 200px;
+  left : 0;
+  right: 0;
+  background: #302e2e;
+  z-index: 1000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+#Logger.collapsed {
+  height: 40px;
+}
+
+#Logger-header {
+  padding: 0 5px;
+  min-height: 40px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#Logger-header button {
+  background: inherit;
+  outline: 0;
+  border: 0;
+  cursor: pointer;
+  color: #fff;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#Logger-header button:hover {
+  color: #fff;
+}
+
+#Logger-toggle {
+  font-size: 16px;
+}
+
+#Logger-messages {
+  overflow-y: scroll;
+}
+
+#Logger.collapsed #Logger-messages {
+  display: none;
+}
+
+.logger-message {
+  padding: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 10px;
 }
