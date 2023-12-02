@@ -3,7 +3,7 @@ body {
   font-family: "Roboto", sans-serif;
 }
 
-.Draggable-1 {
+.Draggable {
   position: fixed;
   width: 100px;
   height: 100px;
@@ -13,6 +13,7 @@ body {
   align-items: center;
   cursor: pointer;
   user-select: none;
+  background: #000;
 }
 
 #Draggable-1-1 {
@@ -22,6 +23,14 @@ body {
 #Draggable-1-2 {
   background: rgb(56, 163, 149);
   left: 150px;
+}
+
+#DraggablesA .Draggable {
+  background: rgb(230, 101, 101);
+}
+
+#DraggablesB .Draggable {
+  background: rgb(54, 121, 81);
 }
 
 #Logger {

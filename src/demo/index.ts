@@ -9,7 +9,7 @@ createLogger();
 Draggable.addGlobalStyles();
 
 new Draggable({
-  element: document.getElementById('Draggable-1-1')!,
+  target: document.getElementById('Draggable-1-1')!,
   plugins: [
     new SnapPlugin({
       threshold: 20,
@@ -24,7 +24,42 @@ new Draggable({
 });
 
 new Draggable({
-  element: document.getElementById('Draggable-1-2')!,
+  target: document.getElementById('Draggable-1-2')!,
+  plugins: [
+    new SnapPlugin({
+      threshold: 10,
+    }),
+    new ContainmentPlugin({
+      container: 'viewport',
+    }),
+  ],
+});
+
+new Draggable({
+  target: [
+    document.getElementById('Draggable-A1')!,
+    document.getElementById('Draggable-A2')!,
+    document.getElementById('Draggable-A3')!,
+    // {
+    //   target: document.getElementById('DraggablesB')!,
+    //   delegateSelector: '.Draggable',
+    // },
+  ],
+  plugins: [
+    new SnapPlugin({
+      threshold: 10,
+    }),
+    new ContainmentPlugin({
+      container: 'viewport',
+    }),
+  ],
+});
+
+new Draggable({
+  target: {
+    element: document.getElementById('DraggablesB')!,
+    delegateSelector: '.Draggable',
+  },
   plugins: [
     new SnapPlugin({
       threshold: 10,

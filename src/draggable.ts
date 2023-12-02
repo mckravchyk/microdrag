@@ -29,13 +29,26 @@ import {
   type SharedEventProperties,
 } from './events';
 
-export interface Options extends Partial<CallbackHandlers> {
-  // The element to make draggable
-
+export interface DraggableTarget {
   /**
-   * The element to make draggable.
+   * The dragged element or the container to which the start event is bound if `delegateSelector` is
+   * used.
    */
   element: HTMLElement
+
+  /**
+   * Make the descendants of `target` automatically draggable rather than `target` itself.
+   */
+  delegateSelector?: string
+
+  /**
+   * Selector string to target descendants of `target` which will not initialize drag.
+   */
+  cancel?: string
+}
+
+export interface Options extends Partial<CallbackHandlers> {
+  target: HTMLElement | DraggableTarget | Array<HTMLElement | DraggableTarget>
 
   /**
    * If set, the element will be cloned and the clone will be dragged instead. The original element
@@ -51,11 +64,6 @@ export interface Options extends Partial<CallbackHandlers> {
     // TODO: A function that takes the original element as the parameter and outputs the cloned
     // element.
   },
-
-  /**
-   * Selector string to target child elements which will not initialize drag.
-   */
-  cancel?: string
 
   /**
    * Whether the dragged element should be promoted to its own composite layer
@@ -79,6 +87,16 @@ export interface Options extends Partial<CallbackHandlers> {
    *
    */
   noPointerEvent?: boolean
+
+  /**
+   * If set, dynamic styles for delegated draggables will not be added. Note that each draggable
+   * must have a `touch-action: none;` style rule applied or the draggable will not work on mobile
+   * devices correctly.
+   *
+   * Direct (non-delegate) draggables have the style rule applied when CSS is added with
+   * `Draggable.addGlobalStyles()`
+   */
+  noDelegateStyles?: boolean
 
   /**
    * The amount of distance (pixels) the pointer has to make to initialize dragging. Default value
@@ -125,6 +143,10 @@ export class Draggable {
 
   private static cssAdded = false;
 
+  private instanceId: number;
+
+  private static instanceCounter = 0;
+
   /**
    * Adds global styles which are needed for draggable to function properly. It is recommended to
    * call this method before initializing draggables.
@@ -139,42 +161,63 @@ export class Draggable {
 
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
   constructor(options : Options) {
+    this.options = deepClone(options);
+    this.instanceId = Draggable.instanceCounter;
+    Draggable.instanceCounter += 1;
+
     const usePointerEvents = (
       typeof window.PointerEvent !== 'undefined'
       && options.noPointerEvent !== true
     );
 
     const startEventName = usePointerEvents ? 'pointerdown' : 'touchstart mousedown';
+    const targets = Draggable.processTargets(this.options.target);
+    const self = this; // eslint-disable-line @typescript-eslint/no-this-alias
 
-    if (options.cancel) {
-      // Must be attached before the start event callback is attached.
+    let dynamicCss = '';
+
+    for (const target of targets) {
+      if (target.cancel) {
+      // Must be added before the start listener
+        this.startListeners.push(
+          addListener({
+            target: target.element,
+            eventName: startEventName,
+            delegateSelector: target.cancel,
+            callback: this.onCancelPointerdown,
+          }),
+        );
+      }
+
+      if (!target.delegateSelector) {
+        target.element.classList.add('draggable-element');
+      }
+      else {
+        // `touch-action: none` style is critical, dragging will not work properly on mobile devices
+        // without it
+        // https://stackoverflow.com/questions/48124372/pointermove-event-not-working-with-touch-why-not
+        target.element.classList.add('draggable-delegate-target');
+        dynamicCss += `.draggable-delegate-target ${target.delegateSelector} { touch-action: none};\n`;
+      }
+
       this.startListeners.push(
         addListener({
-          target: options.element,
+          target: target.element,
           eventName: startEventName,
-          delegateSelector: options.cancel,
-          callback: this.onCancelPointerdown,
+          delegateSelector: target.delegateSelector || false,
+          callback(e: CursorEvent) {
+            self.onInputStart(e, this as unknown as HTMLElement);
+          },
         }),
       );
     }
 
-    // FIXME: This does not consider delegate elements
-    options.element.classList.add('draggable-element');
-
-    const self = this; // eslint-disable-line @typescript-eslint/no-this-alias
-
-    // Attach the start event on the draggable target
-    this.startListeners.push(
-      addListener({
-        target: options.element,
-        eventName: startEventName,
-        callback(e: CursorEvent) {
-          self.onInputStart(e, this as unknown as HTMLElement);
-        },
-      }),
-    );
-
-    this.options = deepClone(options);
+    if (dynamicCss !== '') {
+      const style = document.createElement('STYLE');
+      style.innerHTML = dynamicCss;
+      style.id = `draggable-${this.instanceId}-style`;
+      document.head.appendChild(style);
+    }
 
     this.callbacks = createCallbackHandlersCollection();
 
@@ -207,7 +250,22 @@ export class Draggable {
   public destroy(): void {
     this.removeDragListeners();
 
-    this.options.element.classList.remove('draggable-element');
+    const targets = Draggable.processTargets(this.options.target);
+
+    for (const target of targets) {
+      if (!target.delegateSelector) {
+        target.element.classList.remove('draggable-element');
+      }
+      else {
+        target.element.classList.remove('draggable-delegate-target');
+
+        const style = document.getElementById(`draggable-${this.instanceId}-style`);
+
+        if (style) {
+          document.head.removeChild(style);
+        }
+      }
+    }
 
     // FIXME: The below will result in infinite recursion if a DragEnd callback calls destroy() -
     // the DragEnd callback is called on stop, but since stop has not executed fully, it is still
@@ -395,5 +453,22 @@ export class Draggable {
     priority: number, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): void {
     this.callbacks[handlerName].push(callback as CallbackHandlers[T]);
+  }
+
+  private static processTargets(unprocessed: Options['target']): DraggableTarget[] {
+    const unprocessedArr = Array.isArray(unprocessed) ? unprocessed : [unprocessed];
+
+    const targets: DraggableTarget[] = [];
+
+    for (const target of unprocessedArr) {
+      if (target instanceof Element) {
+        targets.push({ element: target });
+      }
+      else {
+        targets.push(target);
+      }
+    }
+
+    return targets;
   }
 }
