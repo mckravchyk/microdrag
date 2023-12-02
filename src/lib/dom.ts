@@ -18,13 +18,22 @@ export function getWindowHeight() : number {
   return win.innerHeight || docElem.clientHeight || body.clientHeight;
 }
 
-// FIXME: Remove it, it's too basic to be a function call.
-export function getWidth(el: HTMLElement) : number {
-  return el.offsetWidth;
+export function getClientWidth(el: HTMLElement) : number {
+  // clientWidth for overflowing body will be the width of the body, not the visible one. The
+  // window is the visible width of the body that has overflow.
+  if (el === document.body) {
+    return getWindowWidth();
+  }
+
+  return el.clientWidth;
 }
 
-export function getHeight(el: HTMLElement) : number {
-  return el.offsetHeight;
+export function getClientHeight(el: HTMLElement) : number {
+  if (el === document.body) {
+    return getWindowHeight();
+  }
+
+  return el.clientHeight;
 }
 
 /**

@@ -3,6 +3,8 @@ import type { DragEvent, DraggablePlugin } from '../events';
 import { deepClone } from '../lib/deep_clone';
 
 import {
+  getClientHeight,
+  getClientWidth,
   getClientX,
   getClientY,
   getWindowHeight,
@@ -16,15 +18,22 @@ type Box = {
   left: number
 }
 
-export type ContainmentOptions = {
+export interface ContainmentOptions {
+  /**
+   * The reference container for the containment edges.
+   *
+   * Note that the containment works on a coordinate system relative to the edge of the viewport. If
+   * the container has overflow scroll, it does not have an effect - only its rendered dimensions
+   * matter as the element is not dragged within container's coordinate system.
+   */
   container: HTMLElement | 'viewport'
 
   /**
-   * Boundary edges relative to the container.
+   * Edge offsets relative to the container's edges that define the containment.
    *
    * - If the edges are not defined, each edge has a value of 0
    *
-   * - If the number is non-negative, this is the distance from the container boundary.
+   * - If the number is non-negative, this is the distance from the container's edge.
    *
    * - If the number is negative, the dragged element can go past the boundary until only x
    * pixels of it are visible, x being the absolute value of the boundary edge value. I.e. - if
@@ -34,10 +43,11 @@ export type ContainmentOptions = {
   edges?: Box
 }
 
-// FIXME: It does not work properly when the container has overflow scroll.
+// TODO: The same idea as with the snap plugin could apply - accept a rectangle and add a function
+// to calculate it based on the reference element + edges.
 
 /**
- * Sets boundaries which the dragged element will not cross.
+ * Sets up a containment area which dragged elements cannot move past.
  */
 export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Position'> {
   public priority = {
@@ -88,8 +98,8 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
       containerHeight = windowHeight;
     }
     else {
-      containerWidth = this.options.container.offsetWidth; // @domRead
-      containerHeight = this.options.container.offsetHeight; // @domRead
+      containerWidth = getClientWidth(this.options.container); // @domRead
+      containerHeight = getClientHeight(this.options.container); // @domRead
       containerX = getClientX(this.options.container);
       containerY = getClientY(this.options.container);
     }

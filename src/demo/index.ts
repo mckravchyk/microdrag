@@ -50,7 +50,7 @@ new Draggable({
       threshold: 10,
     }),
     new ContainmentPlugin({
-      container: 'viewport',
+      container: document.body,
     }),
   ],
 });
