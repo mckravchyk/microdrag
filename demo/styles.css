@@ -1,6 +1,7 @@
 body {
   background: rgb(53, 71, 117);
   font-family: "Roboto", sans-serif;
+  overflow-y: scroll;
 }
 
 .Draggable {
@@ -14,6 +15,8 @@ body {
   cursor: pointer;
   user-select: none;
   background: #000;
+  top: 0;
+  left: 0;
 }
 
 #Draggable-1-1 {
