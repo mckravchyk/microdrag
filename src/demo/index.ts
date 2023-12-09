@@ -8,26 +8,20 @@ createLogger();
 
 Draggable.addGlobalStyles();
 
-new Draggable({
-  target: document.getElementById('Draggable-1-1')!,
-  plugins: [
-    new SnapPlugin({
-      threshold: 20,
-      edges: {
-        top: 0,
-        right: { offset: 200, threshold: 40, outerThreshold: 100 },
-        bottom: 30,
-        left: 40,
-      },
-    }),
-  ],
-});
+const useCompositing = false;
 
+// Draggables positioned relative to the viewport
 new Draggable({
-  target: document.getElementById('Draggable-1-2')!,
+  target: [
+    document.getElementById('Draggable-F1')!,
+    document.getElementById('Draggable-F2')!,
+    document.getElementById('Draggable-F3')!,
+  ],
+  useCompositing,
   plugins: [
     new SnapPlugin({
       threshold: 10,
+      edgesBase: 'viewport',
     }),
     new ContainmentPlugin({
       container: 'viewport',
@@ -35,37 +29,53 @@ new Draggable({
   ],
 });
 
-new Draggable({
-  target: [
-    document.getElementById('Draggable-A1')!,
-    document.getElementById('Draggable-A2')!,
-    document.getElementById('Draggable-A3')!,
-    // {
-    //   target: document.getElementById('DraggablesB')!,
-    //   delegateSelector: '.Draggable',
-    // },
-  ],
-  plugins: [
-    new SnapPlugin({
-      threshold: 10,
-    }),
-    new ContainmentPlugin({
-      container: document.body,
-    }),
-  ],
-});
-
+// Draggables in the reference frame of the body
 new Draggable({
   target: {
     element: document.getElementById('DraggablesB')!,
     delegateSelector: '.Draggable',
   },
+  refFrame: document.body,
+  useCompositing,
   plugins: [
     new SnapPlugin({
       threshold: 10,
     }),
+    new ContainmentPlugin(),
+  ],
+});
+
+// A draggable using body as the reference frame but setting containment and snap on the viewport
+new Draggable({
+  target: {
+    element: document.getElementById('DraggablesC')!,
+    delegateSelector: '.Draggable',
+  },
+  refFrame: document.body,
+  useCompositing,
+  plugins: [
+    new SnapPlugin({
+      threshold: 10,
+      edgesBase: 'viewport',
+    }),
     new ContainmentPlugin({
       container: 'viewport',
     }),
+  ],
+});
+
+// A draggable using a scrollable container (other than body) as the reference frame
+new Draggable({
+  target: {
+    element: document.getElementById('DraggablesD')!,
+    delegateSelector: '.Draggable',
+  },
+  refFrame: document.getElementById('DraggablesD')!,
+  useCompositing,
+  plugins: [
+    new SnapPlugin({
+      threshold: 10,
+    }),
+    new ContainmentPlugin(),
   ],
 });

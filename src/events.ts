@@ -3,9 +3,9 @@ import type { CursorEvent, cursorEventType } from './lib/cursor_events';
 import { deepClone } from './lib/deep_clone';
 import type { ArraifyObjectValues } from './lib/type_functions';
 
-export const nonDragEventNames = ['PointerDown', 'Click', 'DragEnd'] as const;
+export const nonDragEventNames = ['PointerDown', 'Click', 'Cancel', 'DragEnd'] as const;
 
-export const dragEventNames = ['DragStart', 'Drag', 'DragStop'] as const;
+export const dragEventNames = ['DragStart', 'Drag', 'DragStop', 'RefFrameScroll'] as const;
 
 export const filterNames = ['Position'] as const;
 
@@ -17,68 +17,90 @@ export type DragEventName = typeof dragEventNames[number];
 
 export type EventName = NonDragEventName | DragEventName;
 
-export interface SharedDragProperties {
+interface CommonDragProperties {
   /**
-   * Difference between the dragged element position (edge) and the pointer position
+   * The x coordinate of the dragged element relative to the viewport.
+   */
+  absElementX: number
+
+  /**
+   * The y coordinate of the dragged element relative to the viewport.
+   */
+  absElementY: number
+
+  /**
+   * The difference between the dragged element's left edge and the pointer's x coordinate.
    */
   deltaX: number;
+
+  /**
+   * The difference between the dragged element's top edge and the pointer's y coordinate.
+   */
   deltaY: number;
 
   /**
-   * The element being dragged. It will be null in an event where dragging has not been initialized.
-   * This will be null on a non-drag event
+   * The element being dragged.
    */
   draggedElement: HTMLElement;
 
   /**
-   * Dragged element's position. It will be null in an event where dragging has not been
-   * initialized.
+   * The x coordinate of the dragged element relative to the applied frame of reference.
    */
-   elementX: number
-   elementY: number
+  elementX: number
+
+  /**
+   * The y coordinate of the dragged element relative to the applied frame of reference.
+   */
+  elementY: number
+
+  /**
+   * The difference between the scroll top of the ref frame at the current event, if the event is
+   * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
+   * it / initial state. Use for fast recomputation of plugin environment on ref frame scroll.
+   */
+  refScrollLeftDelta: number
+
+  /**
+   * The difference between the scroll top of the ref frame at the current event, if the event is
+   * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
+   * it / initial state. Use for fast recomputation of plugin environment on ref frame scroll.
+   */
+  refScrollTopDelta: number
 }
 
-export interface SharedEventProperties {
+interface CommonEventProperties {
   /**
-   * Type of the API being used
+   * The x coordinate of the pointer relative to the viewport.
    */
-   eventType: cursorEventType
+  absPointerX: number
 
-   /**
-    * Type of input device
-    */
-   inputDevice: 'mouse' | 'touch'
+  /**
+   * The y coordinate of the pointer relative to the viewport.
+   */
+  absPointerY: number
 
-   pointerId: number
+  /**
+   * The x coordinate of the pointer at the start of the event relative to the viewport.
+   */
+  absPointerX0: number
 
-   /**
-    * The original element - if this.options.helper is disabled, this is also the dragged element.
-    */
-   originalElement: HTMLElement
+  /**
+   * The y coordinate of the pointer at the start of the event relative to the viewport.
+   */
+  absPointerY0: number
 
-   /**
-    * The element that is being interacted with. It is always the dragged element when dragging, but
-    * the original element in other cases (including DragStop).
-    */
-   activeElement: HTMLElement
+  // FIXME: Consider just using originalElement and draggedElement instead, and add the dimensions
+  // variables for each (only dragged if it's not needed for the original element).
 
-   activeElementWidth: number
+  /**
+   * The element that is being interacted with. It is always the dragged element when dragging, but
+   * the original element in other cases (before and after drag, including DragStop).
+   */
+  activeElement: HTMLElement
 
-   activeElementHeight: number
+  activeElementWidth: number
 
-   pointerX: number
-
-   pointerY: number
-
-   /**
-    * The pointer position at the start of the event (x).
-    */
-   pointerX0: number
-
-   /**
-    * The pointer position at the start of the event (y).
-    */
-   pointerY0: number
+  activeElementHeight: number
 
   /**
    * Whether the ctrl key is on
@@ -86,30 +108,104 @@ export interface SharedEventProperties {
    * FIXME: Is it necessary? Perhaps for the callbacks
    * TODO: Instead of exposing this, expose the original event in each callback?
    */
-   ctrlKey: boolean
+  ctrlKey: boolean
+
+  /**
+   * Type of the API being used
+   */
+  eventType: cursorEventType
+
+  /**
+   * The type of the input device
+   */
+  inputDevice: 'mouse' | 'touch'
+
+  /**
+   * The original element - if clone option is not set this is also the dragged element.
+   */
+  originalElement: HTMLElement
+
+  pointerId: number
+
+  /**
+   * The x coordinate of the pointer relative to the applied frame of reference.
+   */
+  pointerX: number
+
+  /**
+   * The y coordinate of the pointer relative to the applied frame of reference.
+   */
+  pointerY: number
+
+  /**
+   * The x coordinate of the pointer at the start of the event relative to the applied frame of
+   * reference.
+   */
+  pointerX0: number
+
+  /**
+   * The y coordinate of the pointer at the start of the event relative to the applied frame of
+   * reference.
+   */
+  pointerY0: number
+
+  refFrame: HTMLElement | 'viewport'
+
+  refScrollLeft: number
+
+  refScrollTop: number
+
+  /**
+   * The x coordinate of the chosen frame of reference relative to the viewport that is used to
+   * translate absolute coordinates to relative ones.
+   */
+  refX: number
+
+  /**
+   * The y coordinate of the chosen frame of reference relative to the viewport that is used to
+   * translate absolute coordinates to relative ones.
+   */
+  refY: number
  }
 
 /**
  * Draggable event information exposed to callbacks.
  */
-export interface NonDragEvent extends SharedEventProperties {
-   /**
-    * The name of the event, i.e. pointerdown, click, start, stop
-    */
-   eventName: string
+export interface NonDragEvent extends CommonEventProperties {
+  /**
+   * The name of the event, i.e. pointerdown, click, start, stop
+   */
+  eventName: string
 
-   /**
-    * Reference to the original DOM event
-    */
-   originalEvent: Event;
- }
+  /**
+   * Reference to the original DOM event
+   */
+  originalEvent: Event;
+}
 
-export interface DragEvent extends NonDragEvent, SharedDragProperties { }
+export interface DragEvent extends NonDragEvent, CommonDragProperties { }
+
+export interface NonDragPropertiesPriv extends CommonEventProperties {
+
+}
 
 /**
  * All drag properties.
  */
-export interface DragProperties extends SharedDragProperties {
+export interface DragProperties extends CommonDragProperties {
+  /**
+   * The x coordinate of the dragged element at the start of the drag relative to the chosen frame
+   * of reference. Note that this is not neccessarily the equivalent of the position at the start
+   * of the event if clone is used.
+   */
+  elementX0: number
+
+  /**
+   * The y coordinate of the dragged element at the start of the drag relative to the chosen frame
+   * of reference. Note that this is not neccessarily the equivalent of the position at the start
+   * of the event if clone is used.
+   */
+  elementY0: number
 
   /**
    * Last processed x and y pointer values
@@ -117,12 +213,6 @@ export interface DragProperties extends SharedDragProperties {
    */
   lastProcessedX: number | null
   lastProcessedY: number | null
-
-  /**
-   * Dragged element's original position
-   */
-  elementX0: number
-  elementY0: number
 
   /**
    * Current id for window.requestAnimationFrame, part of the render loop
@@ -162,6 +252,14 @@ export interface CallbackHandlers {
   onClick: (this: HTMLElement, event: NonDragEvent) => void
 
   /**
+   * Fires when the event is cancelled before dragging starts for reasons other than `Click` and
+   * `Contextmenu`, i.e. when the page starts scrolling before drag was initialized.
+   */
+  onCancel: (this: HTMLElement, event: NonDragEvent) => void
+
+  // TODO: Add a onContextmenu event
+
+  /**
    * Called when drag has been initialized, after all calculations have been made and changes
    * applied to the DOM (except the element's new position - which is applied onDrag).
    */
@@ -172,6 +270,12 @@ export interface CallbackHandlers {
    * is updated in DOM.
    */
   onDrag: (this: HTMLElement, event: DragEvent) => void
+
+  /**
+   * Called when the frame of reference scrolls (only while dragging - drag is cancelled
+   * if scrolling occurs before drag has been initialized).
+   */
+  onRefFrameScroll: (this: HTMLElement, event: DragEvent) => void
 
   /**
    * Called after dragging stopped, but before any DOM updates are made (such as removing classes or
@@ -239,13 +343,17 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
   // Do not use deep clone here (for performance reasons) and mind to not add deeply-nested
   // objects to event properties.
   const nonDragProps: NonDragEvent = {
-    eventType: ctx.event.eventType,
-    inputDevice: ctx.event.inputDevice,
-    pointerId: ctx.event.pointerId,
-    originalElement: ctx.event.originalElement,
+    absPointerX: ctx.event.absPointerX,
+    absPointerY: ctx.event.absPointerY,
+    absPointerX0: ctx.event.absPointerX0,
+    absPointerY0: ctx.event.absPointerY0,
     activeElement: ctx.event.activeElement,
     activeElementWidth: ctx.event.activeElementWidth,
     activeElementHeight: ctx.event.activeElementHeight,
+    eventType: ctx.event.eventType,
+    inputDevice: ctx.event.inputDevice,
+    originalElement: ctx.event.originalElement,
+    pointerId: ctx.event.pointerId,
     pointerX: ctx.event.pointerX,
     pointerY: ctx.event.pointerY,
     pointerX0: ctx.event.pointerX0,
@@ -253,16 +361,25 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
     ctrlKey: ctx.event.ctrlKey,
     eventName,
     originalEvent,
+    refFrame: ctx.options.refFrame || 'viewport',
+    refScrollLeft: ctx.event.refScrollLeft,
+    refScrollTop: ctx.event.refScrollTop,
+    refX: ctx.event.refX,
+    refY: ctx.event.refY,
   };
 
   if (isDragEventName(eventName)) {
     const dragProps: DragEvent = {
       ...nonDragProps,
+      absElementX: ctx.drag!.absElementX,
+      absElementY: ctx.drag!.absElementY,
       elementX: ctx.drag!.elementX,
       elementY: ctx.drag!.elementY,
       draggedElement: ctx.drag!.draggedElement,
       deltaX: ctx.drag!.deltaX,
       deltaY: ctx.drag!.deltaY,
+      refScrollLeftDelta: ctx.drag!.refScrollLeftDelta,
+      refScrollTopDelta: ctx.drag!.refScrollTopDelta,
     };
 
     return dragProps as GetCallbackEvent<T>;
@@ -286,10 +403,12 @@ export function createInputEndEvent(eventType: cursorEventType): CursorEvent {
 export const createCallbackHandlersCollection = (): CallbackHandlersCollection => ({
   onPointerDown: [],
   onClick: [],
+  onCancel: [],
   onDragStart: [],
   onDrag: [],
   onDragStop: [],
   onDragEnd: [],
+  onRefFrameScroll: [],
   filterPosition: [],
 });
 
@@ -307,9 +426,9 @@ export function fireEvent<T extends EventName>(
 
   for (const callback of ctx.callbacks[handlerName]) {
     const props = options.noCloneProps ? eventProps : deepClone(eventProps);
-    // The type casting is a hack, it's not a DragEvent. For whatever reasons TS expects a
-    // DragEvent in .call() argument, it could be that it sees DragEvent as the lowest common
-    // denominator since it's compatible with both types.
+    // The type casting is a hack - supplying the type that extends all possible event data types.
+    // The solution is probably to cast the callback to a generic value that depends on T and
+    // then cast props to GetCallbackEvent<T>
     callback.call(ctx.event.originalElement, props as DragEvent);
   }
 }

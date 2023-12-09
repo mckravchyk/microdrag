@@ -1,4 +1,9 @@
-import { getClientX, getClientY } from './lib/dom';
+import {
+  getAbsLeft,
+  getAbsTop,
+  getScrollLeft,
+  getScrollTop,
+} from './lib/dom';
 
 import {
   getCursorEventType,
@@ -12,13 +17,13 @@ import type { Options } from './draggable';
 
 import {
   createCallbackHandlersCollection,
-  type CallbackHandlersCollection,
-  type DragProperties,
-  type SharedEventProperties,
   getPublicEventProps,
   fireEvent,
   fireDragEvent,
   applyPositionFilters,
+  type CallbackHandlersCollection,
+  type DragProperties,
+  type NonDragPropertiesPriv,
 } from './events';
 
 /**
@@ -29,7 +34,7 @@ import {
 const POINTER_OUT_OF_RANGE_PADDING = 10;
 
 export interface DragContext {
-  event: SharedEventProperties
+  event: NonDragPropertiesPriv
 
   /**
    * Drag properties, initialized at dragInit()
@@ -70,6 +75,9 @@ export interface CreateDragContextProps {
   callbacks: CallbackHandlersCollection
 }
 
+/**
+ * Reads the environment data on input start and creates the context.
+ */
 export function createDragContext(props: CreateDragContextProps): DragContext {
   // TODO: Ensure that when the drag context is created the callbacks cannot be changed
   // externally mid-drag - pass re-constructed callback arrays.
@@ -85,32 +93,56 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
   // Get the input device: mouse or touch
   const inputDevice = getCursorType(e);
 
-  let pointerX0 : number;
-  let pointerY0 : number;
+  let absPointerX0: number;
+  let absPointerY0: number;
 
   if (eventType === 'Touch') {
-    pointerX0 = (e as TouchEvent).touches[0].clientX;
-    pointerY0 = (e as TouchEvent).touches[0].clientY;
+    absPointerX0 = (e as TouchEvent).touches[0].clientX;
+    absPointerY0 = (e as TouchEvent).touches[0].clientY;
   }
   else {
-    pointerX0 = (e as MouseEvent | PointerEvent).clientX;
-    pointerY0 = (e as MouseEvent | PointerEvent).clientY;
+    absPointerX0 = (e as MouseEvent | PointerEvent).clientX;
+    absPointerY0 = (e as MouseEvent | PointerEvent).clientY;
   }
+
+  let refX = 0;
+  let refY = 0;
+  let refScrollLeft = 0;
+  let refScrollTop = 0;
+
+  if (props.options.refFrame) {
+    refX = getAbsLeft(props.options.refFrame);
+    refY = getAbsTop(props.options.refFrame);
+    refScrollLeft = getScrollLeft(props.options.refFrame);
+    refScrollTop = getScrollTop(props.options.refFrame);
+  }
+
+  const pointerX0 = absPointerX0 - refX;
+  const pointerY0 = absPointerY0 - refY;
 
   const ctx: DragContext = {
     event: {
-      eventType,
-      inputDevice,
-      pointerId: getCursorId(e),
-      ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
-      originalElement: props.target,
+      absPointerX: absPointerX0,
+      absPointerY: absPointerY0,
+      absPointerX0,
+      absPointerY0,
       activeElement: props.target,
       activeElementWidth: props.target.offsetWidth, // @domRead
       activeElementHeight: props.target.offsetHeight, // @domRead
-      pointerX0,
-      pointerY0,
+      ctrlKey: (inputDevice === 'mouse' && e.ctrlKey),
+      eventType,
+      refScrollLeft,
+      refScrollTop,
+      refX,
+      refY,
+      inputDevice,
+      originalElement: props.target,
+      pointerId: getCursorId(e),
       pointerX: pointerX0,
       pointerY: pointerY0,
+      pointerX0,
+      pointerY0,
+      refFrame: props.options.refFrame || 'viewport',
     },
     drag: null,
     options: props.options,
@@ -126,11 +158,6 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
 
 function initializeDrag(ctx: DragContext, e: CursorEvent) {
   let draggedElement : HTMLElement;
-
-  let deltaX = 0;
-  let deltaY = 0;
-  let elementX = 0;
-  let elementY = 0;
 
   if (ctx.options.clone) {
     draggedElement = ctx.event.originalElement.cloneNode(true) as HTMLElement; // @domWrite
@@ -151,24 +178,34 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   ctx.event.activeElementWidth = draggedElement.offsetWidth; // @domRead
   ctx.event.activeElementHeight = draggedElement.offsetHeight; // @domRead
 
-  elementX = getClientX(ctx.event.originalElement);
-  elementY = getClientY(ctx.event.originalElement);
+  let absElementX = getAbsLeft(ctx.event.originalElement);
+  let absElementY = getAbsTop(ctx.event.originalElement);
 
   // Sanitize pointer position to be at the end of element (with some padding) if it's out of
   // range. This can happen when the clone helper is smaller than the original element.
-  if (elementX + ctx.event.activeElementWidth <= ctx.event.pointerX0) {
-    elementX = ctx.event.pointerX0 - ctx.event.activeElementWidth + POINTER_OUT_OF_RANGE_PADDING;
+  if (absElementX + ctx.event.activeElementWidth <= ctx.event.absPointerX0) {
+    // eslint-disable-next-line max-len
+    absElementX = ctx.event.absPointerX0 - ctx.event.activeElementWidth + POINTER_OUT_OF_RANGE_PADDING;
   }
 
-  if (elementY + ctx.event.activeElementHeight <= ctx.event.pointerY0) {
-    elementY = ctx.event.pointerY0 - ctx.event.activeElementHeight + POINTER_OUT_OF_RANGE_PADDING;
+  if (absElementY + ctx.event.activeElementHeight <= ctx.event.absPointerY0) {
+    // eslint-disable-next-line max-len
+    absElementY = ctx.event.absPointerY0 - ctx.event.activeElementHeight + POINTER_OUT_OF_RANGE_PADDING;
   }
 
-  // Difference between initial pointer position and helper position.
-  deltaX = ctx.event.pointerX0 - elementX;
-  deltaY = ctx.event.pointerY0 - elementY;
+  const elementX = absElementX - ctx.event.refX;
+  const elementY = absElementY - ctx.event.refY;
+
+  // Note that the pointer position from the start event is used and it's going to differ from the
+  // current position by the drag threshold, this is intended, the element will be moved after drag
+  // initializes and the original pointer position relative to the element is maintained (unless the
+  // position of the element was sanitized above), unaffected by the threshold.
+  const deltaX = ctx.event.pointerX0 - elementX;
+  const deltaY = ctx.event.pointerY0 - elementY;
 
   ctx.drag = {
+    absElementX,
+    absElementY,
     draggedElement,
     deltaX,
     deltaY,
@@ -179,6 +216,8 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
     lastProcessedX: null,
     lastProcessedY: null,
     rafFrameId: null,
+    refScrollLeftDelta: 0,
+    refScrollTopDelta: 0,
   };
 
   fireEvent(ctx, 'DragStart', e);
@@ -191,23 +230,24 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
   }
 
   if (ctx.event.eventType === 'Touch') {
-    ctx.event.pointerX = (<TouchEvent>e).changedTouches[0].clientX;
-    ctx.event.pointerY = (<TouchEvent>e).changedTouches[0].clientY;
+    ctx.event.absPointerX = (<TouchEvent>e).changedTouches[0].clientX;
+    ctx.event.absPointerY = (<TouchEvent>e).changedTouches[0].clientY;
   }
   else {
-    ctx.event.pointerX = (<PointerEvent|MouseEvent>e).clientX;
-    ctx.event.pointerY = (<PointerEvent|MouseEvent>e).clientY;
+    ctx.event.absPointerX = (<PointerEvent|MouseEvent>e).clientX;
+    ctx.event.absPointerY = (<PointerEvent|MouseEvent>e).clientY;
   }
 
+  ctx.event.pointerX = ctx.event.absPointerX - ctx.event.refX;
+  ctx.event.pointerY = ctx.event.absPointerY - ctx.event.refY;
+
   // Note: This might be obvious, but don't think about trying to compare previous values of the
-  // pointer to see if they changed - the event already does it.
+  // pointer to see if they changed - the event will fire only if the pointer actually moved.
 
   if (ctx.drag === null
     && Math.sqrt(
-      /* eslint-disable max-len */
       (ctx.event.pointerX0 - ctx.event.pointerX) * (ctx.event.pointerX0 - ctx.event.pointerX)
       + (ctx.event.pointerY0 - ctx.event.pointerY) * (ctx.event.pointerY0 - ctx.event.pointerY),
-      /* eslint-enable max-len */
     ) > ctx.dragInitDistance
   ) {
     initializeDrag(ctx, e);
@@ -223,15 +263,59 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
       ctx.lastMoveEvent = e;
     }
 
-    // Schedule animation frame to process move
-    if (ctx.drag.rafFrameId === null) {
-      ctx.drag.rafFrameId = requestAnimationFrame(() => {
-        rafProcessMove(ctx);
-      });
-      // Note: In some browsers it would be possible to skip requestAnimationFrame althogether
-      // However there is no reliable way to check if the browser schedules
-      // one move event per frame or not
-    }
+    scheduleProcessMove(ctx);
+  }
+}
+
+/**
+ * Processes the scroll event of the frame of reference.
+ *
+ * When the frame of reference scrolls it moves but the absolute pointer position is the same. From
+ * the perspective of movement inside the frame of reference, the pointer moves relative to it which
+ * triggers a move of the draggable (otherwise the draggable would move away from the pointer).
+ */
+export function processRefFrameScroll(ctx: DragContext, e: MouseEvent): void {
+  if (ctx.drag === null) {
+    stop(ctx, e);
+    return;
+  }
+
+  const refFrame = ctx.event.refFrame as HTMLElement;
+
+  ctx.drag.refScrollLeftDelta = getScrollLeft(refFrame) - ctx.event.refScrollLeft;
+  ctx.drag.refScrollTopDelta = getScrollTop(refFrame) - ctx.event.refScrollTop;
+  ctx.event.refScrollLeft += ctx.drag.refScrollLeftDelta;
+  ctx.event.refScrollTop += ctx.drag.refScrollTopDelta;
+  ctx.event.refX -= ctx.drag.refScrollLeftDelta;
+  ctx.event.refY -= ctx.drag.refScrollTopDelta;
+
+  ctx.event.pointerX = ctx.event.absPointerX - ctx.event.refX;
+  ctx.event.pointerY = ctx.event.absPointerY - ctx.event.refY;
+
+  if (ctx.hasDragCallback || ctx.hasDragFilter) {
+    ctx.lastMoveEvent = e;
+  }
+
+  scheduleProcessMove(ctx);
+
+  fireEvent(ctx, 'RefFrameScroll', e);
+}
+
+/**
+ * Schedules processing of updated pointer position (to update the element position) on the next
+ * animation frame.
+ *
+ * Chromium does not fire more than one move event per frame, other browsers likely do not either,
+ * however, the move can be caused not only be `pointermove` but also `scroll` which can fire in the
+ * very same frame - using `requestAnimationFrame` ensures that no matter what, the position is
+ * updated only once per frame.
+ */
+function scheduleProcessMove(ctx: DragContext): void {
+  // Schedule animation frame to process move
+  if (ctx.drag && ctx.drag.rafFrameId === null) {
+    ctx.drag.rafFrameId = requestAnimationFrame(() => {
+      rafProcessMove(ctx);
+    });
   }
 }
 
@@ -333,7 +417,9 @@ export function stop(ctx: DragContext, initiatingEvent: CursorEvent) {
     // changes are applied, second event after core dom changes are applied. I.e. grid
     // functionality, before it was removed, executed some code at the end.
   }
-  // Else if drag was not initialized.
+  else if (initiatingEvent.type === 'scroll') {
+    fireEvent(ctx, 'Cancel', initiatingEvent);
+  }
   else {
     fireEvent(ctx, 'Click', initiatingEvent);
   }
@@ -353,6 +439,8 @@ export function processContextmenuEvent(ctx: DragContext, e: CursorEvent) {
   if (getCursorId(e) !== ctx.event.pointerId) {
     throw new Error('Invalid pointer ID [yr06vkH0QvdT]');
   }
+
+  // FIXME: Emit a ContextMenu event
 
   // Prevent contextmenu if dragging
   if (ctx.drag !== null) {

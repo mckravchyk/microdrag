@@ -11,6 +11,7 @@ import {
   processInputMove,
   processInputEnd,
   processContextmenuEvent,
+  processRefFrameScroll,
 } from './drag';
 
 import { addCSS } from './style';
@@ -26,7 +27,7 @@ import {
   type CallbackName,
   handlerNames,
   type CallbackHandlerName,
-  type SharedEventProperties,
+  type NonDragPropertiesPriv,
 } from './events';
 
 export interface DraggableTarget {
@@ -49,6 +50,13 @@ export interface DraggableTarget {
 
 export interface Options extends Partial<CallbackHandlers> {
   target: HTMLElement | DraggableTarget | Array<HTMLElement | DraggableTarget>
+
+  /**
+   * The frame of reference - a positioned element that is the reference for dragged element
+   * positions (dragged elements use `absolute` positioning relative to that element). If not set,
+   * the frame of reference is the window and draggables must use `fixed` positioning.
+   */
+  refFrame?: HTMLElement
 
   /**
    * If set, the element will be cloned and the clone will be dragged instead. The original element
@@ -212,6 +220,16 @@ export class Draggable {
       );
     }
 
+    if (typeof options.refFrame !== 'undefined') {
+      this.startListeners.push(
+        addListener({
+          target: options.refFrame === document.body ? document : options.refFrame,
+          eventName: 'scroll',
+          callback: this.onRefFrameScroll,
+        }),
+      );
+    }
+
     if (dynamicCss !== '') {
       const style = document.createElement('STYLE');
       style.innerHTML = dynamicCss;
@@ -220,6 +238,11 @@ export class Draggable {
     }
 
     this.callbacks = createCallbackHandlersCollection();
+
+    // TODO: Consider implementing the plugin system in a way where the draggable options can be
+    // passed to the plugin's constructor, so instead of passing instances of plugins, classes
+    // would be passed and plugin options separately, so the draggable options can be injected. It
+    // may also make sense in the future for the plugin to be able to access the draggable instance.
 
     const plugins = options.plugins || [];
 
@@ -360,7 +383,18 @@ export class Draggable {
     fireEvent(ctx, 'PointerDown', e);
   };
 
-  private bindDragListeners(event: SharedEventProperties): void {
+  private onRefFrameScroll = (e: MouseEvent): void => {
+    for (const ctx of Array.from(this.dragInstances.values())) {
+      processRefFrameScroll(ctx, e);
+
+      // If dragging has not been initialized ref frame scroll cancels the instance
+      if (ctx.drag === null) {
+        this.removeDragged(ctx.event.pointerId);
+      }
+    }
+  };
+
+  private bindDragListeners(event: NonDragPropertiesPriv): void {
     if (this.dragListenerUnsubscriber !== null) {
       return;
     }
