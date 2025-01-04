@@ -1,5 +1,5 @@
 import { SnapPlugin } from 'src/plugins/snap';
-import { ContainmentPlugin, Draggable } from 'xydrag';
+import { ContainmentPlugin, Draggable } from 'microdrag';
 import { createLogger } from './logger';
 
 /* eslint-disable no-new */

@@ -13,7 +13,7 @@
     "verbatimModuleSyntax": true,
     "baseUrl": "./",
     "paths": {
-      "xydrag": ["src/index.ts"]
+      "microdrag": ["src/index.ts"]
     }
   },
   "include": [

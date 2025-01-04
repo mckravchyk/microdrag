@@ -123,13 +123,13 @@ const bundle = () => [
       {
         file: `dist/${pkg.name}.js`,
         format: 'umd',
-        name: 'xydrag',
+        name: 'microdrag',
         banner,
       },
       {
         file: `dist/${pkg.name}.min.js`,
         format: 'umd',
-        name: 'xydrag',
+        name: 'microdrag',
         banner,
         plugins: [
           terser(),
