@@ -425,13 +425,13 @@ export function stop(ctx: DragContext, initiatingEvent: CursorEvent) {
     fireEvent(ctx, 'Click', initiatingEvent);
   }
 
-  ctx.callbacks = createCallbackHandlersCollection();
-
   if (ctx.drag !== null) {
     ctx.drag = null;
     // Note that this is a "non-drag event".
     fireEvent(ctx, 'DragEnd', initiatingEvent);
   }
+
+  ctx.callbacks = createCallbackHandlersCollection();
 }
 
 /**
