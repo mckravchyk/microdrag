@@ -53,6 +53,20 @@ interface CommonDragProperties {
    */
   draggedY: number
 
+  /**
+   * The x coordinate of the dragged element at the start of the drag relative to the chosen frame
+   * of reference. Note that this is not neccessarily the equivalent of the position at the start
+   * of the event if clone is used.
+   */
+  draggedX0: number
+
+  /**
+   * The y coordinate of the dragged element at the start of the drag relative to the chosen frame
+   * of reference. Note that this is not neccessarily the equivalent of the position at the start
+   * of the event if clone is used.
+   */
+  draggedY0: number
+
   draggedWidth: number
 
   draggedHeight: number
@@ -184,20 +198,6 @@ export interface NonDragPropertiesPriv extends CommonEventProperties {
  * All drag properties.
  */
 export interface DragProperties extends CommonDragProperties {
-  /**
-   * The x coordinate of the dragged element at the start of the drag relative to the chosen frame
-   * of reference. Note that this is not neccessarily the equivalent of the position at the start
-   * of the event if clone is used.
-   */
-  draggedX0: number
-
-  /**
-   * The y coordinate of the dragged element at the start of the drag relative to the chosen frame
-   * of reference. Note that this is not neccessarily the equivalent of the position at the start
-   * of the event if clone is used.
-   */
-  draggedY0: number
-
   /**
    * Last processed x and y pointer values
    * This is used to prevent unncessary work if the pointer position did not change
@@ -361,9 +361,11 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
       ...nonDragProps,
       absElementX: ctx.drag!.absElementX,
       absElementY: ctx.drag!.absElementY,
+      dragged: ctx.drag!.dragged,
       draggedX: ctx.drag!.draggedX,
       draggedY: ctx.drag!.draggedY,
-      dragged: ctx.drag!.dragged,
+      draggedX0: ctx.drag!.draggedX0,
+      draggedY0: ctx.drag!.draggedY0,
       deltaX: ctx.drag!.deltaX,
       deltaY: ctx.drag!.deltaY,
       draggedWidth: ctx.drag!.draggedWidth,
