@@ -461,7 +461,7 @@ export class Draggable {
 
     this.dragInstances.delete(pointerId);
 
-    const index = ctx ? this.draggedElements.indexOf(ctx.event.originalElement) : -1;
+    const index = ctx ? this.draggedElements.indexOf(ctx.event.target) : -1;
 
     if (index !== -1) {
       this.draggedElements.splice(index, 1);

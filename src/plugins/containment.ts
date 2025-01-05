@@ -135,8 +135,8 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
       this.computeContainment(event);
     }
 
-    let x = event.elementX;
-    let y = event.elementY;
+    let x = event.draggedX;
+    let y = event.draggedY;
 
     if (x < this.containment.left) {
       x = this.containment.left;

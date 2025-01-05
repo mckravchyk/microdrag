@@ -41,17 +41,17 @@ interface CommonDragProperties {
   /**
    * The element being dragged.
    */
-  draggedElement: HTMLElement;
+  dragged: HTMLElement;
 
   /**
    * The x coordinate of the dragged element relative to the applied frame of reference.
    */
-  elementX: number
+  draggedX: number
 
   /**
    * The y coordinate of the dragged element relative to the applied frame of reference.
    */
-  elementY: number
+  draggedY: number
 
   /**
    * The difference between the scroll top of the ref frame at the current event, if the event is
@@ -121,9 +121,9 @@ interface CommonEventProperties {
   inputDevice: 'mouse' | 'touch'
 
   /**
-   * The original element - if clone option is not set this is also the dragged element.
+   * The drag target. If clone option is not set, it is also the dragged element.
    */
-  originalElement: HTMLElement
+  target: HTMLElement
 
   pointerId: number
 
@@ -198,14 +198,14 @@ export interface DragProperties extends CommonDragProperties {
    * of reference. Note that this is not neccessarily the equivalent of the position at the start
    * of the event if clone is used.
    */
-  elementX0: number
+  draggedX0: number
 
   /**
    * The y coordinate of the dragged element at the start of the drag relative to the chosen frame
    * of reference. Note that this is not neccessarily the equivalent of the position at the start
    * of the event if clone is used.
    */
-  elementY0: number
+  draggedY0: number
 
   /**
    * Last processed x and y pointer values
@@ -352,7 +352,7 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
     activeElementHeight: ctx.event.activeElementHeight,
     eventType: ctx.event.eventType,
     inputDevice: ctx.event.inputDevice,
-    originalElement: ctx.event.originalElement,
+    target: ctx.event.target,
     pointerId: ctx.event.pointerId,
     pointerX: ctx.event.pointerX,
     pointerY: ctx.event.pointerY,
@@ -373,9 +373,9 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
       ...nonDragProps,
       absElementX: ctx.drag!.absElementX,
       absElementY: ctx.drag!.absElementY,
-      elementX: ctx.drag!.elementX,
-      elementY: ctx.drag!.elementY,
-      draggedElement: ctx.drag!.draggedElement,
+      draggedX: ctx.drag!.draggedX,
+      draggedY: ctx.drag!.draggedY,
+      dragged: ctx.drag!.dragged,
       deltaX: ctx.drag!.deltaX,
       deltaY: ctx.drag!.deltaY,
       refScrollLeftDelta: ctx.drag!.refScrollLeftDelta,
@@ -429,22 +429,22 @@ export function fireEvent<T extends EventName>(
     // The type casting is a hack - supplying the type that extends all possible event data types.
     // The solution is probably to cast the callback to a generic value that depends on T and
     // then cast props to GetCallbackEvent<T>
-    callback.call(ctx.event.originalElement, props as DragEvent);
+    callback.call(ctx.event.target, props as DragEvent);
   }
 }
 
 export function applyPositionFilters(ctx: DragContext, event: DragEvent): void {
   for (const callback of ctx.callbacks.filterPosition) {
-    const result = callback.call(ctx.drag!.draggedElement, event);
+    const result = callback.call(ctx.drag!.dragged, event);
 
     if (result) {
-      event.elementX = result[0];
-      event.elementY = result[1];
+      event.draggedX = result[0];
+      event.draggedY = result[1];
     }
   }
 
-  ctx.drag!.elementX = event.elementX;
-  ctx.drag!.elementY = event.elementY;
+  ctx.drag!.draggedX = event.draggedX;
+  ctx.drag!.draggedY = event.draggedY;
 }
 
 /**
@@ -453,6 +453,6 @@ export function applyPositionFilters(ctx: DragContext, event: DragEvent): void {
  */
 export function fireDragEvent(ctx: DragContext, event: DragEvent): void {
   for (const callback of ctx.callbacks.onDrag) {
-    callback.call(ctx.event.originalElement, event);
+    callback.call(ctx.event.target, event);
   }
 }

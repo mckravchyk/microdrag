@@ -136,7 +136,7 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
       refX,
       refY,
       inputDevice,
-      originalElement: props.target,
+      target: props.target,
       pointerId: getCursorId(e),
       pointerX: pointerX0,
       pointerY: pointerY0,
@@ -157,29 +157,29 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
 }
 
 function initializeDrag(ctx: DragContext, e: CursorEvent) {
-  let draggedElement : HTMLElement;
+  let dragged : HTMLElement;
 
   if (ctx.options.clone) {
-    draggedElement = ctx.event.originalElement.cloneNode(true) as HTMLElement; // @domWrite
-    draggedElement.setAttribute('id', ''); // @domWrite
-    ctx.options.clone.attachTo.appendChild(draggedElement); // @domWrite
+    dragged = ctx.event.target.cloneNode(true) as HTMLElement; // @domWrite
+    dragged.setAttribute('id', ''); // @domWrite
+    ctx.options.clone.attachTo.appendChild(dragged); // @domWrite
   }
   else {
-    draggedElement = ctx.event.originalElement;
+    dragged = ctx.event.target;
   }
 
-  draggedElement.classList.add('draggable-element-is-dragging'); // @domWrite
+  dragged.classList.add('draggable-element-is-dragging'); // @domWrite
   document.body.classList.add('draggable-is-dragging'); // @domWrite
 
-  ctx.event.activeElement = draggedElement;
+  ctx.event.activeElement = dragged;
 
   // The element dimensions need to be updated not just because the clone may be different but also
   // because adding the is-dragging class could potentially change its dimensions.
-  ctx.event.activeElementWidth = draggedElement.offsetWidth; // @domRead
-  ctx.event.activeElementHeight = draggedElement.offsetHeight; // @domRead
+  ctx.event.activeElementWidth = dragged.offsetWidth; // @domRead
+  ctx.event.activeElementHeight = dragged.offsetHeight; // @domRead
 
-  let absElementX = getAbsLeft(ctx.event.originalElement);
-  let absElementY = getAbsTop(ctx.event.originalElement);
+  let absElementX = getAbsLeft(ctx.event.target);
+  let absElementY = getAbsTop(ctx.event.target);
 
   // Sanitize pointer position to be at the end of element (with some padding) if it's out of
   // range. This can happen when the clone helper is smaller than the original element.
@@ -193,26 +193,26 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
     absElementY = ctx.event.absPointerY0 - ctx.event.activeElementHeight + POINTER_OUT_OF_RANGE_PADDING;
   }
 
-  const elementX = absElementX - ctx.event.refX;
-  const elementY = absElementY - ctx.event.refY;
+  const draggedX = absElementX - ctx.event.refX;
+  const draggedY = absElementY - ctx.event.refY;
 
   // Note that the pointer position from the start event is used and it's going to differ from the
   // current position by the drag threshold, this is intended, the element will be moved after drag
   // initializes and the original pointer position relative to the element is maintained (unless the
   // position of the element was sanitized above), unaffected by the threshold.
-  const deltaX = ctx.event.pointerX0 - elementX;
-  const deltaY = ctx.event.pointerY0 - elementY;
+  const deltaX = ctx.event.pointerX0 - draggedX;
+  const deltaY = ctx.event.pointerY0 - draggedY;
 
   ctx.drag = {
     absElementX,
     absElementY,
-    draggedElement,
+    dragged,
     deltaX,
     deltaY,
-    elementX,
-    elementY,
-    elementX0: elementX,
-    elementY0: elementY,
+    draggedX,
+    draggedY,
+    draggedX0: draggedX,
+    draggedY0: draggedY,
     lastProcessedX: null,
     lastProcessedY: null,
     rafFrameId: null,
@@ -347,8 +347,8 @@ function processMove(ctx: DragContext) {
   ctx.drag.lastProcessedX = ctx.event.pointerX;
   ctx.drag.lastProcessedY = ctx.event.pointerY;
 
-  ctx.drag.elementX = ctx.event.pointerX - ctx.drag.deltaX;
-  ctx.drag.elementY = ctx.event.pointerY - ctx.drag.deltaY;
+  ctx.drag.draggedX = ctx.event.pointerX - ctx.drag.deltaX;
+  ctx.drag.draggedY = ctx.event.pointerY - ctx.drag.deltaY;
 
   if (ctx.lastMoveEvent && (ctx.hasDragFilter || ctx.hasDragCallback)) {
     const eventProps = getPublicEventProps(ctx, 'Drag', ctx.lastMoveEvent);
@@ -363,13 +363,13 @@ function processMove(ctx: DragContext) {
   }
 
   if (ctx.options.useCompositing) {
-    const transformX = ctx.drag.elementX - ctx.drag.elementX0;
-    const transformY = ctx.drag.elementY - ctx.drag.elementY0;
-    ctx.drag.draggedElement.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
+    const transformX = ctx.drag.draggedX - ctx.drag.draggedX0;
+    const transformY = ctx.drag.draggedY - ctx.drag.draggedY0;
+    ctx.drag.dragged.style.transform = `translate3d(${transformX}px,${transformY}px,0)`; // @domWrite
   }
   else {
-    ctx.drag.draggedElement.style.left = `${ctx.drag.elementX}px`; // @domWrite
-    ctx.drag.draggedElement.style.top = `${ctx.drag.elementY}px`; // @domWrite
+    ctx.drag.dragged.style.left = `${ctx.drag.draggedX}px`; // @domWrite
+    ctx.drag.dragged.style.top = `${ctx.drag.draggedY}px`; // @domWrite
   }
 }
 
@@ -392,19 +392,19 @@ export function stop(ctx: DragContext, initiatingEvent: CursorEvent) {
     fireEvent(ctx, 'DragStop', initiatingEvent);
 
     document.body.classList.remove('draggable-is-dragging');
-    ctx.drag.draggedElement.classList.remove('draggable-element-is-dragging'); // @domWrite
+    ctx.drag.dragged.classList.remove('draggable-element-is-dragging'); // @domWrite
 
     // If using composite layer - clean up the transform, apply the position as left/top position
     if (ctx.options.useCompositing) {
       // FIXME: What if the element has existing transformation applied?
-      ctx.drag.draggedElement.style.left = `${ctx.drag.elementX}px`; // @domWrite
-      ctx.drag.draggedElement.style.top = `${ctx.drag.elementY}px`;
-      ctx.drag.draggedElement.style.transform = '';
+      ctx.drag.dragged.style.left = `${ctx.drag.draggedX}px`; // @domWrite
+      ctx.drag.dragged.style.top = `${ctx.drag.draggedY}px`;
+      ctx.drag.dragged.style.transform = '';
     }
 
     if (ctx.options.clone) {
-      ctx.event.activeElement = ctx.event.originalElement;
-      ctx.options.clone.attachTo.removeChild(ctx.drag.draggedElement); // @domWrite
+      ctx.event.activeElement = ctx.event.target;
+      ctx.options.clone.attachTo.removeChild(ctx.drag.dragged); // @domWrite
       // FIXME: It seems like relocating the dragged element is not part of the implementation?
     }
 

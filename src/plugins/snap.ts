@@ -163,8 +163,8 @@ export class SnapPlugin implements DraggablePlugin<'DragStart' | 'Position' | 'R
       this.computeEdges(event);
     }
 
-    let x = event.elementX;
-    let y = event.elementY;
+    let x = event.draggedX;
+    let y = event.draggedY;
 
     if (typeof this.edges.left !== 'undefined' && (
       (x >= this.edges.left && x - this.edges.left <= this.thresholds.left!.threshold)
