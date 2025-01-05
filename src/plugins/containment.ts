@@ -180,25 +180,25 @@ export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Positio
       left = x + this.containerEdges.left;
     }
     else {
-      left = y + Math.abs(this.containerEdges.left) - e.activeElementWidth;
+      left = y + Math.abs(this.containerEdges.left) - e.draggedWidth;
     }
 
     if (this.containerEdges.top >= 0) {
       top = y + this.containerEdges.top;
     }
     else {
-      top = y + Math.abs(this.containerEdges.top) - e.activeElementHeight;
+      top = y + Math.abs(this.containerEdges.top) - e.draggedHeight;
     }
 
     if (this.containerEdges.right >= 0) {
-      right = width + x - e.activeElementWidth - this.containerEdges.right;
+      right = width + x - e.draggedWidth - this.containerEdges.right;
     }
     else {
       right = x + width - Math.abs(this.containerEdges.right);
     }
 
     if (this.containerEdges.bottom >= 0) {
-      bottom = height + y - e.activeElementHeight - this.containerEdges.bottom;
+      bottom = height + y - e.draggedHeight - this.containerEdges.bottom;
     }
     else {
       bottom = y + height - Math.abs(this.containerEdges.bottom);

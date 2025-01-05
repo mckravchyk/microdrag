@@ -53,6 +53,10 @@ interface CommonDragProperties {
    */
   draggedY: number
 
+  draggedWidth: number
+
+  draggedHeight: number
+
   /**
    * The difference between the scroll top of the ref frame at the current event, if the event is
    * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
@@ -88,19 +92,6 @@ interface CommonEventProperties {
    * The y coordinate of the pointer at the start of the event relative to the viewport.
    */
   absPointerY0: number
-
-  // FIXME: Consider just using originalElement and draggedElement instead, and add the dimensions
-  // variables for each (only dragged if it's not needed for the original element).
-
-  /**
-   * The element that is being interacted with. It is always the dragged element when dragging, but
-   * the original element in other cases (before and after drag, including DragStop).
-   */
-  activeElement: HTMLElement
-
-  activeElementWidth: number
-
-  activeElementHeight: number
 
   /**
    * Whether the ctrl key is on
@@ -347,9 +338,6 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
     absPointerY: ctx.event.absPointerY,
     absPointerX0: ctx.event.absPointerX0,
     absPointerY0: ctx.event.absPointerY0,
-    activeElement: ctx.event.activeElement,
-    activeElementWidth: ctx.event.activeElementWidth,
-    activeElementHeight: ctx.event.activeElementHeight,
     eventType: ctx.event.eventType,
     inputDevice: ctx.event.inputDevice,
     target: ctx.event.target,
@@ -378,6 +366,8 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
       dragged: ctx.drag!.dragged,
       deltaX: ctx.drag!.deltaX,
       deltaY: ctx.drag!.deltaY,
+      draggedWidth: ctx.drag!.draggedWidth,
+      draggedHeight: ctx.drag!.draggedHeight,
       refScrollLeftDelta: ctx.drag!.refScrollLeftDelta,
       refScrollTopDelta: ctx.drag!.refScrollTopDelta,
     };

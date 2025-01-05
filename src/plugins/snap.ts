@@ -211,8 +211,8 @@ export class SnapPlugin implements DraggablePlugin<'DragStart' | 'Position' | 'R
 
     const left = x + this.getEdgeOffset('left');
     const top = y + this.getEdgeOffset('top');
-    const right = x + width - e.activeElementWidth - this.getEdgeOffset('right');
-    const bottom = y + height - e.activeElementHeight - this.getEdgeOffset('bottom');
+    const right = x + width - e.draggedWidth - this.getEdgeOffset('right');
+    const bottom = y + height - e.draggedHeight - this.getEdgeOffset('bottom');
 
     this.edges = { top, left, right, bottom }; // eslint-disable-line object-curly-newline
 
