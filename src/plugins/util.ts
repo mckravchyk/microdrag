@@ -1,6 +1,5 @@
 import {
-  getAbsLeft,
-  getAbsTop,
+  getAbsOffset,
   getClientHeight,
   getClientWidth,
   getScrollHeight,
@@ -48,8 +47,14 @@ export function computeRelativeBoxArea(
   }
 
   if (box !== refFrame) {
-    const absContainerX = box === 'viewport' ? 0 : getAbsLeft(box);
-    const absContainerY = box === 'viewport' ? 0 : getAbsTop(box);
+    let absContainerX = 0;
+    let absContainerY = 0;
+
+    if (box !== 'viewport') {
+      const boxOffset = getAbsOffset(box);
+      absContainerX = boxOffset.left;
+      absContainerY = boxOffset.top;
+    }
 
     containerX = absContainerX - refX;
     containerY = absContainerY - refY;

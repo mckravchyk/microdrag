@@ -5,21 +5,6 @@ const docElem = doc.documentElement;
 const body = doc.getElementsByTagName('body')[0];
 
 /**
- * Gets a computed CSS property as a number. If the property is not numeric, 0 will be returned.
- */
-function getComputedPropNum(el: HTMLElement, cssProperty: keyof CSSStyleDeclaration): number {
-  const styleRule = getComputedStyle(el)[cssProperty];
-
-  if (typeof styleRule !== 'string') {
-    return 0;
-  }
-
-  const numeric = parseInt(styleRule.replace('px', ''), 10);
-
-  return Number.isNaN(numeric) ? 0 : numeric;
-}
-
-/**
  * Gets browser window width
  */
 export function getWindowWidth() : number {
@@ -78,45 +63,35 @@ export function getScrollTop(el: HTMLElement) {
 }
 
 /**
- * Gets element's left position relative to the viewport.
+ * Calculates element's left and top positions relative to the viewport.
  */
-export function getAbsLeft(el: HTMLElement): number {
-  let offset = 0;
+export function getAbsOffset(el: HTMLElement): { left: number, top: number } {
+  let left = 0;
+  let top = 0;
   let currentElement: HTMLElement | null = el;
 
   while (currentElement !== null) {
-    // Another odd thing about the body element is that for a regular element, margin is part of the
-    // offset / positioning, but .offsetLeft considers margin as part of the body.
+    // When body has position relative, its margin will add up to the offset, but it will not be
+    // considered by offsetLeft / offsetTop properties. It needs to be added manually.
     if (currentElement === document.body) {
-      offset += getComputedPropNum(currentElement, 'marginLeft');
+      const cs = getComputedStyle(document.body);
+
+      if (cs.position === 'relative') {
+        const marginLeft = parseInt(cs.marginLeft.replace('px', ''), 10);
+        const marginTop = parseInt(cs.marginTop.replace('px', ''), 10);
+        left += !Number.isNaN(marginLeft) ? marginLeft : 0;
+        top += !Number.isNaN(marginTop) ? marginTop : 0;
+      }
     }
 
-    offset += currentElement.offsetLeft;
-    offset -= getScrollLeft(currentElement);
+    left += currentElement.offsetLeft;
+    top += currentElement.offsetTop;
+    left -= getScrollLeft(currentElement);
+    top -= getScrollTop(currentElement);
     currentElement = currentElement.offsetParent as HTMLElement | null;
   }
 
-  return offset;
-}
-
-/**
- * Gets element's top position relative to the viewport.
- */
-export function getAbsTop(el: HTMLElement): number {
-  let offset = 0;
-  let currentElement: HTMLElement | null = el;
-
-  while (currentElement !== null) {
-    if (currentElement === document.body) {
-      offset += getComputedPropNum(currentElement, 'marginTop');
-    }
-
-    offset += currentElement.offsetTop;
-    offset -= getScrollTop(currentElement);
-    currentElement = currentElement.offsetParent as HTMLElement | null;
-  }
-
-  return offset;
+  return { left, top };
 }
 
 export function isAncestor(ancestor: HTMLElement, descendant: HTMLElement): boolean {

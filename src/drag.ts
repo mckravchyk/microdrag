@@ -1,6 +1,5 @@
 import {
-  getAbsLeft,
-  getAbsTop,
+  getAbsOffset,
   getScrollLeft,
   getScrollTop,
 } from './lib/dom';
@@ -111,8 +110,9 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
   let refScrollTop = 0;
 
   if (props.options.refFrame) {
-    refX = getAbsLeft(props.options.refFrame);
-    refY = getAbsTop(props.options.refFrame);
+    const refOffset = getAbsOffset(props.options.refFrame);
+    refX = refOffset.left;
+    refY = refOffset.top;
     refScrollLeft = getScrollLeft(props.options.refFrame);
     refScrollTop = getScrollTop(props.options.refFrame);
   }
@@ -175,18 +175,17 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   const draggedWidth = dragged.offsetWidth; // @domRead
   const draggedHeight = dragged.offsetHeight; // @domRead
 
-  let absElementX = getAbsLeft(ctx.event.target);
-  let absElementY = getAbsTop(ctx.event.target);
+  const absElementOffset = getAbsOffset(ctx.event.target);
+  let absElementX = absElementOffset.left;
+  let absElementY = absElementOffset.top;
 
   // Sanitize pointer position to be at the end of element (with some padding) if it's out of
   // range. This can happen when the clone helper is smaller than the original element.
   if (absElementX + draggedWidth <= ctx.event.absPointerX0) {
-    // eslint-disable-next-line max-len
     absElementX = ctx.event.absPointerX0 - draggedWidth + POINTER_OUT_OF_RANGE_PADDING;
   }
 
   if (absElementY + draggedHeight <= ctx.event.absPointerY0) {
-    // eslint-disable-next-line max-len
     absElementY = ctx.event.absPointerY0 - draggedHeight + POINTER_OUT_OF_RANGE_PADDING;
   }
 

@@ -2,7 +2,7 @@ import { Draggable, type Options } from './draggable';
 
 import { ContainmentPlugin } from './plugins/containment';
 
-import { getAbsLeft, getAbsTop } from './lib/dom';
+import { getAbsOffset } from './lib/dom';
 
 import type { NonDragEvent, DragEvent } from './events';
 
@@ -17,8 +17,7 @@ export {
   // TODO: Plugins, if possible, should be exported to their own subpath so they are excluded from
   // the main bundle by default.
   ContainmentPlugin,
-  getAbsLeft,
-  getAbsTop,
+  getAbsOffset,
 };
 
 export type {
