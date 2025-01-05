@@ -386,11 +386,6 @@ export class Draggable {
   private onRefFrameScroll = (e: MouseEvent): void => {
     for (const ctx of Array.from(this.dragInstances.values())) {
       processRefFrameScroll(ctx, e);
-
-      // If dragging has not been initialized ref frame scroll cancels the instance
-      if (ctx.drag === null) {
-        this.removeDragged(ctx.event.pointerId);
-      }
     }
   };
 

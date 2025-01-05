@@ -197,6 +197,7 @@ function initializeDrag(ctx: DragContext, e: CursorEvent) {
   // current position by the drag threshold, this is intended, the element will be moved after drag
   // initializes and the original pointer position relative to the element is maintained (unless the
   // position of the element was sanitized above), unaffected by the threshold.
+  // This approach also solves the scenario where drag is initialized from the scroll event.
   const deltaX = ctx.event.pointerX0 - draggedX;
   const deltaY = ctx.event.pointerY0 - draggedY;
 
@@ -243,6 +244,7 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
   // Note: This might be obvious, but don't think about trying to compare previous values of the
   // pointer to see if they changed - the event will fire only if the pointer actually moved.
 
+  // Not a function so it's faster
   if (ctx.drag === null
     && Math.sqrt(
       (ctx.event.pointerX0 - ctx.event.pointerX) * (ctx.event.pointerX0 - ctx.event.pointerX)
@@ -274,30 +276,37 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
  * triggers a move of the draggable (otherwise the draggable would move away from the pointer).
  */
 export function processRefFrameScroll(ctx: DragContext, e: MouseEvent): void {
-  if (ctx.drag === null) {
-    stop(ctx, e);
-    return;
-  }
-
   const refFrame = ctx.event.refFrame as HTMLElement;
 
-  ctx.drag.refScrollLeftDelta = getScrollLeft(refFrame) - ctx.event.refScrollLeft;
-  ctx.drag.refScrollTopDelta = getScrollTop(refFrame) - ctx.event.refScrollTop;
-  ctx.event.refScrollLeft += ctx.drag.refScrollLeftDelta;
-  ctx.event.refScrollTop += ctx.drag.refScrollTopDelta;
-  ctx.event.refX -= ctx.drag.refScrollLeftDelta;
-  ctx.event.refY -= ctx.drag.refScrollTopDelta;
+  const refScrollLeftDelta = getScrollLeft(refFrame) - ctx.event.refScrollLeft;
+  const refScrollTopDelta = getScrollTop(refFrame) - ctx.event.refScrollTop;
 
+  ctx.event.refX -= refScrollLeftDelta;
+  ctx.event.refY -= refScrollTopDelta;
+  ctx.event.refScrollLeft += refScrollLeftDelta;
+  ctx.event.refScrollTop += refScrollTopDelta;
   ctx.event.pointerX = ctx.event.absPointerX - ctx.event.refX;
   ctx.event.pointerY = ctx.event.absPointerY - ctx.event.refY;
 
-  if (ctx.hasDragCallback || ctx.hasDragFilter) {
-    ctx.lastMoveEvent = e;
+  // Not a function so it's faster
+  if (ctx.drag === null && Math.sqrt(
+    (ctx.event.pointerX0 - ctx.event.pointerX) * (ctx.event.pointerX0 - ctx.event.pointerX)
+    + (ctx.event.pointerY0 - ctx.event.pointerY) * (ctx.event.pointerY0 - ctx.event.pointerY),
+  ) > ctx.dragInitDistance) {
+    initializeDrag(ctx, e);
   }
 
-  scheduleProcessMove(ctx);
+  if (ctx.drag !== null) {
+    ctx.drag.refScrollLeftDelta = refScrollLeftDelta;
+    ctx.drag.refScrollTopDelta = refScrollTopDelta;
 
-  fireEvent(ctx, 'RefFrameScroll', e);
+    if (ctx.hasDragCallback || ctx.hasDragFilter) {
+      ctx.lastMoveEvent = e;
+    }
+
+    scheduleProcessMove(ctx);
+    fireEvent(ctx, 'RefFrameScroll', e);
+  }
 }
 
 /**
