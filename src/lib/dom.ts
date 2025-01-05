@@ -85,15 +85,15 @@ export function getAbsLeft(el: HTMLElement): number {
   let currentElement: HTMLElement | null = el;
 
   while (currentElement !== null) {
+    // Another odd thing about the body element is that for a regular element, margin is part of the
+    // offset / positioning, but .offsetLeft considers margin as part of the body.
+    if (currentElement === document.body) {
+      offset += getComputedPropNum(currentElement, 'marginLeft');
+    }
+
     offset += currentElement.offsetLeft;
     offset -= getScrollLeft(currentElement);
     currentElement = currentElement.offsetParent as HTMLElement | null;
-  }
-
-  // Another odd thing about the body element is that for a regular element, margin is part of the
-  // offset / positioning, but .offsetLeft considers margin as part of the body.
-  if (el === document.body) {
-    offset += getComputedPropNum(el, 'marginLeft');
   }
 
   return offset;
@@ -107,13 +107,13 @@ export function getAbsTop(el: HTMLElement): number {
   let currentElement: HTMLElement | null = el;
 
   while (currentElement !== null) {
+    if (currentElement === document.body) {
+      offset += getComputedPropNum(currentElement, 'marginTop');
+    }
+
     offset += currentElement.offsetTop;
     offset -= getScrollTop(currentElement);
     currentElement = currentElement.offsetParent as HTMLElement | null;
-  }
-
-  if (el === document.body) {
-    offset += getComputedPropNum(el, 'marginTop');
   }
 
   return offset;
