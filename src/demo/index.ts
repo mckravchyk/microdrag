@@ -1,5 +1,10 @@
-import { SnapPlugin } from 'src/plugins/snap';
-import { ContainmentPlugin, Draggable } from 'microdrag';
+import {
+  Draggable,
+  ContainmentPlugin,
+  SnapPlugin,
+  RefScrollPlugin,
+} from 'microdrag';
+
 import { createLogger } from './logger';
 
 /* eslint-disable no-new */
@@ -42,6 +47,7 @@ new Draggable({
       threshold: 10,
     }),
     new ContainmentPlugin(),
+    new RefScrollPlugin(),
   ],
 });
 
@@ -77,5 +83,6 @@ new Draggable({
       threshold: 10,
     }),
     new ContainmentPlugin(),
+    new RefScrollPlugin(),
   ],
 });

@@ -1,5 +1,7 @@
 import {
   getAbsOffset,
+  getClientHeight,
+  getClientWidth,
   getScrollLeft,
   getScrollTop,
 } from './lib/dom';
@@ -108,6 +110,8 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
   let refY = 0;
   let refScrollLeft = 0;
   let refScrollTop = 0;
+  let refWidth = 0;
+  let refHeight = 0;
 
   if (props.options.refFrame) {
     const refOffset = getAbsOffset(props.options.refFrame);
@@ -115,6 +119,8 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
     refY = refOffset.top;
     refScrollLeft = getScrollLeft(props.options.refFrame);
     refScrollTop = getScrollTop(props.options.refFrame);
+    refWidth = getClientWidth(props.options.refFrame);
+    refHeight = getClientHeight(props.options.refFrame);
   }
 
   const pointerX0 = absPointerX0 - refX;
@@ -132,6 +138,8 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
       refScrollTop,
       refX,
       refY,
+      refWidth,
+      refHeight,
       inputDevice,
       target: props.target,
       pointerId: getCursorId(e),

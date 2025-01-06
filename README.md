@@ -14,6 +14,7 @@ Features:
 Built-in plugins:
 - Containment plugin allows to restrict the movement of the dragged item
 - Snap plugin makes the dragged item snap to edges
+- Scroll plugin enables scrolling of the reference frame container when the dragged item approaches its boundary
 - Sortable plugin handles basic sorting (1 dimensional containers only)
 
 That's right, there is no drag and drop plugin at this point.

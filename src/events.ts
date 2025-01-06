@@ -72,7 +72,7 @@ interface CommonDragProperties {
   draggedHeight: number
 
   /**
-   * The difference between the scroll top of the ref frame at the current event, if the event is
+   * The difference between the scroll left of the ref frame at the current event, if the event is
    * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
    * it / initial state. Use for fast recomputation of plugin environment on ref frame scroll.
    */
@@ -171,6 +171,10 @@ interface CommonEventProperties {
    * translate absolute coordinates to relative ones.
    */
   refY: number
+
+  refWidth: number
+
+  refHeight: number
  }
 
 /**
@@ -354,6 +358,8 @@ export function getPublicEventProps<T extends NonDragEventName | DragEventName>(
     refScrollTop: ctx.event.refScrollTop,
     refX: ctx.event.refX,
     refY: ctx.event.refY,
+    refWidth: ctx.event.refWidth,
+    refHeight: ctx.event.refHeight,
   };
 
   if (isDragEventName(eventName)) {

@@ -62,6 +62,42 @@ export function getScrollTop(el: HTMLElement) {
   return el.scrollTop;
 }
 
+export function setScrollLeft(el: HTMLElement, value: number) {
+  if (el === document.body) {
+    document.documentElement.scrollLeft = value;
+  }
+  else {
+    el.scrollLeft = value;
+  }
+}
+
+export function setScrollTop(el: HTMLElement, value: number) {
+  if (el === document.body) {
+    document.documentElement.scrollTop = value;
+  }
+  else {
+    el.scrollTop = value;
+  }
+}
+
+export function updateScrollLeft(el: HTMLElement, delta: number) {
+  if (el === document.body) {
+    document.documentElement.scrollLeft += delta;
+  }
+  else {
+    el.scrollLeft += delta;
+  }
+}
+
+export function updateScrollTop(el: HTMLElement, delta: number) {
+  if (el === document.body) {
+    document.documentElement.scrollTop += delta;
+  }
+  else {
+    el.scrollTop += delta;
+  }
+}
+
 /**
  * Calculates element's left and top positions relative to the viewport.
  */

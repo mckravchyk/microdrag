@@ -1,6 +1,7 @@
 body {
   background: rgb(53, 71, 117);
   font-family: "Roboto", sans-serif;
+  overflow-x: scroll;
   overflow-y: scroll;
   position: relative;
 }
@@ -49,6 +50,7 @@ body {
   position: absolute;
   left: 0;
   top: 360px;
+  overflow-x: scroll;
   overflow-y: scroll;
   width: 360px;
   height: 274px;
