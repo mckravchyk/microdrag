@@ -17,3 +17,5 @@ Built-in plugins:
 - Ref Frame Scroll plugin enables scrolling of the reference frame container when the dragged item approaches its boundary
 
 This is not a drag and drop library, although a drag and drop plugin will be implemented at some point.
+
+NOTE: Currently this library is something I have made only for myself. Lack of documentation is purposeful, it's not really meant for public use at this point and the API will change a lot.
