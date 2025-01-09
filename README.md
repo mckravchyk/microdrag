@@ -1,8 +1,8 @@
-## MicroDrag
+## Microdrag
 
-MicroDrag is a fast and lightweight draggable implementation with a plugin system.
+Microdrag is a base library for creating draggable interactions. 
 
-> NOTE: MicroDrag is work in progress. The API may change any time and bugs are expected.
+> NOTE: Microdrag is work in progress. The API will change and bugs are expected.
 
 Features:
 - Lightweight core with a plugin system ensures no unnecessary processing while dragging
@@ -14,7 +14,6 @@ Features:
 Built-in plugins:
 - Containment plugin allows to restrict the movement of the dragged item
 - Snap plugin makes the dragged item snap to edges
-- Scroll plugin enables scrolling of the reference frame container when the dragged item approaches its boundary
-- Sortable plugin handles basic sorting (1 dimensional containers only)
+- Ref Frame Scroll plugin enables scrolling of the reference frame container when the dragged item approaches its boundary
 
-That's right, there is no drag and drop plugin at this point.
+This is not a drag and drop library, although a drag and drop plugin will be implemented at some point.

@@ -1,7 +1,7 @@
 {
   "name": "microdrag",
   "version": "0.0.1",
-  "description": "Fast and lightweight draggable library with a plugin system to extend it",
+  "description": "A fast and lightweight base library for creating draggable interactions",
   "author": "Maciej Krawczyk",
   "homepage": "https://github.com/mckravchyk/microdrag",
   "license": "MIT",
