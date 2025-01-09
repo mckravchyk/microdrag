@@ -28,6 +28,8 @@ import {
   handlerNames,
   type CallbackHandlerName,
   type NonDragPropertiesPriv,
+  filterDisableDrag,
+  getPublicEventProps,
 } from './events';
 
 export interface DraggableTarget {
@@ -372,6 +374,8 @@ export class Draggable {
       options: this.options,
       callbacks: this.callbacks,
     });
+
+    ctx.isDragDisabled = filterDisableDrag(ctx, getPublicEventProps(ctx, 'PointerDown', e));
 
     this.dragInstances.set(pointerId, ctx);
     this.draggedElements.push(eventThis);

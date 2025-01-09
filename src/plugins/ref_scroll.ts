@@ -53,7 +53,7 @@ export class RefScrollPlugin implements DraggablePlugin<'DragStart' | 'Drag' | '
 
   private canScrollY = false;
 
-  public constructor(options: ScrollOptions = {}) {
+  public constructor(options: RefScrollOptions = {}) {
     this.options = {
       threshold: DEFAULT_SCROLL_THRESHOLD,
       scrollAmount: DEFAULT_SCROLL_AMOUNT,

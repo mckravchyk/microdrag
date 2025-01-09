@@ -61,6 +61,11 @@ export interface DragContext {
    * from requestAnimationFrame and need to rely on previously cached value.
    */
   lastMoveEvent: CursorEvent | null
+
+  /**
+   * Whether dragging has been disabled by the filter.
+   */
+  isDragDisabled: boolean
 }
 
 export interface CreateDragContextProps {
@@ -156,6 +161,7 @@ export function createDragContext(props: CreateDragContextProps): DragContext {
     hasDragFilter: props.callbacks.filterPosition.length > 0,
     dragInitDistance,
     lastMoveEvent: null,
+    isDragDisabled: false,
   };
 
   return ctx;
@@ -253,6 +259,7 @@ export function processInputMove(ctx: DragContext, e : CursorEvent) {
 
   // Not a function so it's faster
   if (ctx.drag === null
+    && !ctx.isDragDisabled
     && Math.sqrt(
       (ctx.event.pointerX0 - ctx.event.pointerX) * (ctx.event.pointerX0 - ctx.event.pointerX)
       + (ctx.event.pointerY0 - ctx.event.pointerY) * (ctx.event.pointerY0 - ctx.event.pointerY),
@@ -296,7 +303,7 @@ export function processRefFrameScroll(ctx: DragContext, e: MouseEvent): void {
   ctx.event.pointerY = ctx.event.absPointerY - ctx.event.refY;
 
   // Not a function so it's faster
-  if (ctx.drag === null && Math.sqrt(
+  if (ctx.drag === null && !ctx.isDragDisabled && Math.sqrt(
     (ctx.event.pointerX0 - ctx.event.pointerX) * (ctx.event.pointerX0 - ctx.event.pointerX)
     + (ctx.event.pointerY0 - ctx.event.pointerY) * (ctx.event.pointerY0 - ctx.event.pointerY),
   ) > ctx.dragInitDistance) {

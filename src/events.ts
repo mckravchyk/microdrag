@@ -7,7 +7,7 @@ export const nonDragEventNames = ['PointerDown', 'Click', 'Cancel', 'DragEnd'] a
 
 export const dragEventNames = ['DragStart', 'Drag', 'DragStop', 'RefFrameScroll'] as const;
 
-export const filterNames = ['Position'] as const;
+export const filterNames = ['Position', 'DisableDrag'] as const;
 
 export const eventNames = [...nonDragEventNames, ...dragEventNames, ...filterNames] as const;
 
@@ -73,14 +73,14 @@ interface CommonDragProperties {
 
   /**
    * The difference between the scroll left of the ref frame at the current event, if the event is
-   * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
+   * RefFrameScroll or last RefFrameScroll event, otherwise the RefFrameScroll event preceeding
    * it / initial state. Use for fast recomputation of plugin environment on ref frame scroll.
    */
   refScrollLeftDelta: number
 
   /**
    * The difference between the scroll top of the ref frame at the current event, if the event is
-   * RefFrameScroll or last RefFrameScroll event, otherwise and the RefFrameScroll event preceeding
+   * RefFrameScroll or last RefFrameScroll event, otherwise the RefFrameScroll event preceeding
    * it / initial state. Use for fast recomputation of plugin environment on ref frame scroll.
    */
   refScrollTopDelta: number
@@ -285,6 +285,14 @@ export interface CallbackHandlers {
   onDragEnd: (this: HTMLElement, event: NonDragEvent) => void
 
   /**
+   * Allows to prevent dragging before it starts.
+   */
+  filterDisableDrag: (
+    this: HTMLElement,
+    event: NonDragEvent
+  ) => boolean
+
+  /**
    * Allows to filter dragged element's position before it's rendered. The current position can be
    * accessed in the event props.
    */
@@ -407,6 +415,7 @@ export const createCallbackHandlersCollection = (): CallbackHandlersCollection =
   onDragStop: [],
   onDragEnd: [],
   onRefFrameScroll: [],
+  filterDisableDrag: [],
   filterPosition: [],
 });
 
@@ -443,6 +452,16 @@ export function applyPositionFilters(ctx: DragContext, event: DragEvent): void {
 
   ctx.drag!.draggedX = event.draggedX;
   ctx.drag!.draggedY = event.draggedY;
+}
+
+export function filterDisableDrag(ctx: DragContext, event: NonDragEvent): boolean {
+  let cancel = false;
+
+  for (const callback of ctx.callbacks.filterDisableDrag) {
+    cancel = callback.call(ctx.event.target, event);
+  }
+
+  return cancel;
 }
 
 /**
