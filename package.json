@@ -5,7 +5,6 @@
   "author": "Maciej Krawczyk",
   "homepage": "https://github.com/mckravchyk/microdrag",
   "license": "MIT",
-  "private": true,
   "main": "./dist/microdrag.common.js",
   "module": "./dist/microdrag.mjs",
   "exports": {
