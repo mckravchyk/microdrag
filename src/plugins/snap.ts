@@ -1,4 +1,4 @@
-import type { DragEvent, DraggablePlugin } from '../events';
+import type { DragEvent, MicrodragPlugin } from '../events';
 
 import { deepClone } from '../lib/deep_clone';
 
@@ -63,7 +63,7 @@ export const DEFAULT_SNAP_THRESHOLD = 10;
  *
  * To define multiple snap boxes, initialize and add a plugin for each box.
  */
-export class SnapPlugin implements DraggablePlugin<'DragStart' | 'Position' | 'RefFrameScroll'> {
+export class SnapPlugin implements MicrodragPlugin<'DragStart' | 'Position' | 'RefFrameScroll'> {
   public priority = {
     DragStart: 10,
     Position: 10,

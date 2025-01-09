@@ -1,4 +1,4 @@
-import type { DragEvent, DraggablePlugin } from '../events';
+import type { DragEvent, MicrodragPlugin } from '../events';
 
 import {
   getScrollHeight,
@@ -34,7 +34,7 @@ export const DEFAULT_SCROLL_INTERVAL = 100;
  * Enables scrolling the reference container when the dragged element approaches its boundary.
  * Requires the `refFrame` option defined on the Draggable instance.
  */
-export class RefScrollPlugin implements DraggablePlugin<'DragStart' | 'Drag' | 'DragEnd'> {
+export class RefScrollPlugin implements MicrodragPlugin<'DragStart' | 'Drag' | 'DragEnd'> {
   public priority = {
     DragStart: 10,
     Drag: 10,

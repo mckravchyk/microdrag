@@ -4,15 +4,15 @@ import { getAbsOffset } from './lib/dom';
 // development should be exported to a special subpath.
 import { computeRelativeBoxArea } from './plugins/util';
 
-import { Draggable, type Options } from './draggable';
-import type { NonDragEvent, DragEvent, DraggablePlugin } from './events';
+import { Microdrag, type Options } from './main';
+import type { NonDragEvent, DragEvent, MicrodragPlugin } from './events';
 
 import { ContainmentPlugin, type ContainmentOptions } from './plugins/containment';
 import { SnapPlugin, type SnapOptions } from './plugins/snap';
 import { RefScrollPlugin, type RefScrollOptions } from './plugins/ref_scroll';
 
 export {
-  Draggable,
+  Microdrag,
 
   type Options,
   type NonDragEvent,
@@ -21,7 +21,7 @@ export {
   // TODO: Plugins, if possible, should be exported to their own subpath so they are excluded from
   // the main bundle by default.
 
-  type DraggablePlugin,
+  type MicrodragPlugin,
 
   ContainmentPlugin,
   type ContainmentOptions,

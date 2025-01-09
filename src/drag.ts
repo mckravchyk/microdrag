@@ -14,7 +14,7 @@ import {
 
 import type { CursorEvent } from './lib/cursor_events';
 
-import type { Options } from './draggable';
+import type { Options } from './main';
 
 import {
   createCallbackHandlersCollection,

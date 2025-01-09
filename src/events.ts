@@ -317,14 +317,14 @@ type PickCallbackHandlers<
 /**
  * Represents any Draggable Plugin.
  */
-export type DraggablePluginAny = Partial<CallbackHandlers> & {
+export type MicroDragPluginAny = Partial<CallbackHandlers> & {
   priority: Partial<Record<CallbackName, number>>
 }
 // FIXME: Use an optional generic argument to cover both cases in a single type.
 /**
  * Draggable Plugin interface for plugins to implement.
  */
-export type DraggablePlugin<T extends CallbackName> = PickCallbackHandlers<T> & {
+export type MicrodragPlugin<T extends CallbackName> = PickCallbackHandlers<T> & {
   priority: Record<T, number>
 }
 

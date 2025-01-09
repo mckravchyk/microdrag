@@ -1,5 +1,5 @@
 import {
-  Draggable,
+  Microdrag,
   ContainmentPlugin,
   SnapPlugin,
   RefScrollPlugin,
@@ -11,12 +11,12 @@ import { createLogger } from './logger';
 
 createLogger();
 
-Draggable.addGlobalStyles();
+Microdrag.addGlobalStyles();
 
 const useCompositing = false;
 
 // Draggables positioned relative to the viewport
-new Draggable({
+new Microdrag({
   target: [
     document.getElementById('Draggable-F1')!,
     document.getElementById('Draggable-F2')!,
@@ -35,7 +35,7 @@ new Draggable({
 });
 
 // Draggables in the reference frame of the body
-new Draggable({
+new Microdrag({
   target: {
     element: document.getElementById('DraggablesB')!,
     delegateSelector: '.Draggable',
@@ -52,7 +52,7 @@ new Draggable({
 });
 
 // A draggable using body as the reference frame but setting containment and snap on the viewport
-new Draggable({
+new Microdrag({
   target: {
     element: document.getElementById('DraggablesC')!,
     delegateSelector: '.Draggable',
@@ -71,7 +71,7 @@ new Draggable({
 });
 
 // A draggable using a scrollable container (other than body) as the reference frame
-new Draggable({
+new Microdrag({
   target: {
     element: document.getElementById('DraggablesD')!,
     delegateSelector: '.Draggable',

@@ -21,7 +21,7 @@ import {
   fireEvent,
   createInputEndEvent,
   type CallbackHandlers,
-  type DraggablePluginAny,
+  type MicroDragPluginAny,
   type CallbackHandlersCollection,
   toHandlerName,
   type CallbackName,
@@ -86,7 +86,7 @@ export interface Options extends Partial<CallbackHandlers> {
   /**
    * Add plugins to extend draggable capabilities.
    */
-  plugins?: DraggablePluginAny[]
+  plugins?: MicroDragPluginAny[]
 
   /**
    * Force not using PointerEvent even if the browser supports it (for testing).
@@ -124,7 +124,7 @@ export interface Options extends Partial<CallbackHandlers> {
   debugLogger?: ((id: string, msg: string, data?: unknown) => void) | false;
 }
 
-export class Draggable {
+export class Microdrag {
   private options : Options;
 
   /**
@@ -162,7 +162,7 @@ export class Draggable {
    * call this method before initializing draggables.
    */
   public static addGlobalStyles() {
-    if (Draggable.cssAdded) {
+    if (Microdrag.cssAdded) {
       throw new Error('Styles already added');
     }
 
@@ -172,8 +172,8 @@ export class Draggable {
   // TODO: Validate options with ts-interface-builder/ts-interface-checker?
   constructor(options : Options) {
     this.options = deepClone(options);
-    this.instanceId = Draggable.instanceCounter;
-    Draggable.instanceCounter += 1;
+    this.instanceId = Microdrag.instanceCounter;
+    Microdrag.instanceCounter += 1;
 
     const usePointerEvents = (
       typeof window.PointerEvent !== 'undefined'
@@ -181,7 +181,7 @@ export class Draggable {
     );
 
     const startEventName = usePointerEvents ? 'pointerdown' : 'touchstart mousedown';
-    const targets = Draggable.processTargets(this.options.target);
+    const targets = Microdrag.processTargets(this.options.target);
     const self = this; // eslint-disable-line @typescript-eslint/no-this-alias
 
     let dynamicCss = '';
@@ -275,7 +275,7 @@ export class Draggable {
   public destroy(): void {
     this.removeDragListeners();
 
-    const targets = Draggable.processTargets(this.options.target);
+    const targets = Microdrag.processTargets(this.options.target);
 
     for (const target of targets) {
       if (!target.delegateSelector) {

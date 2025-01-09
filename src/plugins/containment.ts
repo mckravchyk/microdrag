@@ -1,4 +1,4 @@
-import type { DragEvent, DraggablePlugin } from '../events';
+import type { DragEvent, MicrodragPlugin } from '../events';
 
 import { deepClone } from '../lib/deep_clone';
 
@@ -39,7 +39,7 @@ export interface ContainmentOptions {
 /**
  * Sets up a containment area which dragged elements cannot move past.
  */
-export class ContainmentPlugin implements DraggablePlugin<'DragStart' | 'Position' | 'RefFrameScroll'> {
+export class ContainmentPlugin implements MicrodragPlugin<'DragStart' | 'Position' | 'RefFrameScroll'> {
   public priority = {
     DragStart: 10,
     Position: 10,
